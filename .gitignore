@@ -52,3 +52,7 @@ coverage/
 # Credentials saved during deploy — never commit
 process/.credentials.local.md
 .supabase/
+
+# Supabase CLI local state (link, project ref) — re-created on `supabase link`
+supabase/.temp/
+supabase/.branches/
