@@ -1,13 +1,15 @@
+import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import RoleGate from '@/components/RoleGate'
 import AppShell from '@/components/layout/AppShell'
-import ComingSoon from '@/components/ComingSoon'
 import NotFoundPage from '@/components/NotFoundPage'
+import Spinner from '@/components/ui/Spinner'
 
 import LoginPage from '@/features/auth/pages/LoginPage'
 import SignupPage from '@/features/auth/pages/SignupPage'
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
+import AccountPage from '@/features/auth/pages/AccountPage'
 import UsersListPage from '@/features/admin/pages/UsersListPage'
 import CustomersListPage from '@/features/customers/pages/CustomersListPage'
 import CustomerDetailPage from '@/features/customers/pages/CustomerDetailPage'
@@ -20,9 +22,15 @@ import ExpensesListPage from '@/features/expenses/pages/ExpensesListPage'
 import EmployeesListPage from '@/features/employees/pages/EmployeesListPage'
 import EmployeeDetailPage from '@/features/employees/pages/EmployeeDetailPage'
 import SalariesPage from '@/features/employees/pages/SalariesPage'
-import BoardPage from '@/features/tasks/pages/BoardPage'
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
-import InsightsPage from '@/features/insights/pages/InsightsPage'
+
+// Heavy pages — code-split to keep the main bundle small
+const BoardPage    = lazy(() => import('@/features/tasks/pages/BoardPage'))
+const InsightsPage = lazy(() => import('@/features/insights/pages/InsightsPage'))
+
+function PageLoader() {
+  return <div className="flex justify-center py-20"><Spinner size="lg" /></div>
+}
 
 export default function AppRoutes() {
   return (
@@ -39,7 +47,7 @@ export default function AppRoutes() {
         <Route path="/customers/:id" element={<CustomerDetailPage />} />
         <Route path="/projects"   element={<ProjectsListPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        <Route path="/projects/:id/board" element={<BoardPage />} />
+        <Route path="/projects/:id/board" element={<Suspense fallback={<PageLoader />}><BoardPage /></Suspense>} />
         <Route path="/invoices"   element={<InvoicesListPage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
@@ -50,10 +58,10 @@ export default function AppRoutes() {
         <Route path="/employees/:id"  element={<RoleGate><EmployeeDetailPage /></RoleGate>} />
         <Route path="/salaries"       element={<RoleGate><SalariesPage /></RoleGate>} />
 
-        <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/insights" element={<Suspense fallback={<PageLoader />}><InsightsPage /></Suspense>} />
 
         <Route path="/admin/users" element={<RoleGate><UsersListPage /></RoleGate>} />
-        <Route path="/account"     element={<ComingSoon title="Account" phase="13" description="Edit your profile and change your password." />} />
+        <Route path="/account"     element={<AccountPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

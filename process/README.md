@@ -42,4 +42,5 @@ NN-change-<short-name>.md   ← out-of-band changes that don't belong to a phase
 - [10-phase-employees-salary.md](10-phase-employees-salary.md) — Phase 09: employee directory + monthly salaries with pay/unpay RPCs
 - [11-phase-kanban.md](11-phase-kanban.md) — Phase 10: kanban board with dnd-kit, task drawer, comments, checklist, attachments, labels, realtime
 - [12-phase-dashboard.md](12-phase-dashboard.md) — Phase 11: dashboard with stat cards, recent projects, upcoming invoices
-- (more files appear as phases land)
+- [13-phase-insights.md](13-phase-insights.md) — Phase 12: insights with Recharts (revenue, cash flow, top customers, profitability)
+- [14-phase-polish-deploy.md](14-phase-polish-deploy.md) — Phase 13: code splitting, account page, Supabase + Vercel deploy, end-to-end QA
