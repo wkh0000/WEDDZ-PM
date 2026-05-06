@@ -17,6 +17,9 @@ import InvoicesListPage from '@/features/invoices/pages/InvoicesListPage'
 import InvoiceDetailPage from '@/features/invoices/pages/InvoiceDetailPage'
 import InvoicePrintPage from '@/features/invoices/pages/InvoicePrintPage'
 import ExpensesListPage from '@/features/expenses/pages/ExpensesListPage'
+import EmployeesListPage from '@/features/employees/pages/EmployeesListPage'
+import EmployeeDetailPage from '@/features/employees/pages/EmployeeDetailPage'
+import SalariesPage from '@/features/employees/pages/SalariesPage'
 
 export default function AppRoutes() {
   return (
@@ -40,9 +43,9 @@ export default function AppRoutes() {
         <Route path="/expenses"   element={<ExpensesListPage />} />
 
         {/* Super-admin only */}
-        <Route path="/employees"      element={<RoleGate><ComingSoon title="Employees" phase="09" description="Employee directory and details." /></RoleGate>} />
-        <Route path="/employees/:id"  element={<RoleGate><ComingSoon title="Employee"  phase="09" description="Employee detail with salary history." /></RoleGate>} />
-        <Route path="/salaries"       element={<RoleGate><ComingSoon title="Salaries"  phase="09" description="Monthly salary run with mark-as-paid." /></RoleGate>} />
+        <Route path="/employees"      element={<RoleGate><EmployeesListPage /></RoleGate>} />
+        <Route path="/employees/:id"  element={<RoleGate><EmployeeDetailPage /></RoleGate>} />
+        <Route path="/salaries"       element={<RoleGate><SalariesPage /></RoleGate>} />
 
         <Route path="/insights" element={<ComingSoon title="Insights" phase="12" description="Revenue, profitability, trends, cash flow." />} />
 

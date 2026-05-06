@@ -39,4 +39,5 @@ NN-change-<short-name>.md   ← out-of-band changes that don't belong to a phase
 - [07-phase-projects.md](07-phase-projects.md) — Phase 06: project CRUD with status filter, updates log, default kanban columns
 - [08-phase-invoices.md](08-phase-invoices.md) — Phase 07: invoice CRUD with auto-numbering, line items, mark paid, print view
 - [09-phase-expenses.md](09-phase-expenses.md) — Phase 08: expense CRUD with month selector, category/scope filters, monthly summary
+- [10-phase-employees-salary.md](10-phase-employees-salary.md) — Phase 09: employee directory + monthly salaries with pay/unpay RPCs
 - (more files appear as phases land)
