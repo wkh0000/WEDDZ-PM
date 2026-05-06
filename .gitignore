@@ -48,3 +48,7 @@ coverage/
 
 # Claude Code local settings (user-specific, not project)
 .claude/settings.local.json
+
+# Credentials saved during deploy — never commit
+process/.credentials.local.md
+.supabase/
