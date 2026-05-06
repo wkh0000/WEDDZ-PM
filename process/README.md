@@ -33,4 +33,5 @@ NN-change-<short-name>.md   ← out-of-band changes that don't belong to a phase
 - [01-change-rename-and-multiuser.md](01-change-rename-and-multiuser.md) — rename FellowCRM → WEDDZ PM, switch to multi-user shared workspace with roles
 - [02-phase-foundation.md](02-phase-foundation.md) — Phase 01: Vite + React + Tailwind scaffold, deps, lib utilities
 - [03-phase-database.md](03-phase-database.md) — Phase 02: SQL migration, storage policies, Edge Function for team member creation
+- [04-phase-auth-layout.md](04-phase-auth-layout.md) — Phase 03: Auth context, layout shell, route guards, UI primitives
 - (more files appear as phases land)
