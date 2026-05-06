@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "checkJs": false,
+    "allowJs": true
+  },
+  "include": ["src/**/*", "vite.config.js", "tailwind.config.js"],
+  "exclude": ["node_modules", "dist"]
+}
