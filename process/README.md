@@ -35,4 +35,5 @@ NN-change-<short-name>.md   ← out-of-band changes that don't belong to a phase
 - [03-phase-database.md](03-phase-database.md) — Phase 02: SQL migration, storage policies, Edge Function for team member creation
 - [04-phase-auth-layout.md](04-phase-auth-layout.md) — Phase 03: Auth context, layout shell, route guards, UI primitives
 - [05-phase-team-members.md](05-phase-team-members.md) — Phase 04: /admin/users with Add/Edit team member modals (Edge Function client)
+- [06-phase-customers.md](06-phase-customers.md) — Phase 05: customer CRUD with list, detail tabs, and form modal
 - (more files appear as phases land)

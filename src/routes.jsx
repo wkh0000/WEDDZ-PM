@@ -9,6 +9,8 @@ import LoginPage from '@/features/auth/pages/LoginPage'
 import SignupPage from '@/features/auth/pages/SignupPage'
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
 import UsersListPage from '@/features/admin/pages/UsersListPage'
+import CustomersListPage from '@/features/customers/pages/CustomersListPage'
+import CustomerDetailPage from '@/features/customers/pages/CustomerDetailPage'
 
 export default function AppRoutes() {
   return (
@@ -21,8 +23,8 @@ export default function AppRoutes() {
       {/* Authenticated, inside AppShell */}
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/"           element={<ComingSoon title="Dashboard"   phase="11" description="Stat cards, recent projects, upcoming invoices." />} />
-        <Route path="/customers"  element={<ComingSoon title="Customers"   phase="05" description="Customer list, search, CRUD." />} />
-        <Route path="/customers/:id" element={<ComingSoon title="Customer" phase="05" description="Customer detail with projects + invoices." />} />
+        <Route path="/customers"  element={<CustomersListPage />} />
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
         <Route path="/projects"   element={<ComingSoon title="Projects"    phase="06" description="Project list with status filter." />} />
         <Route path="/projects/:id" element={<ComingSoon title="Project"   phase="06" description="Project detail with updates, invoices, expenses." />} />
         <Route path="/projects/:id/board" element={<ComingSoon title="Kanban" phase="10" description="Drag-and-drop task board with realtime collaboration." />} />
