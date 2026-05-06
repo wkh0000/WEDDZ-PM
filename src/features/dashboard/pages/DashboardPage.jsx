@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Users, FolderKanban, FileText, Wallet, ArrowUpRight, Calendar } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import StatCard from '@/components/ui/StatCard'
 import Card from '@/components/ui/Card'
@@ -50,18 +49,14 @@ export default function DashboardPage() {
         description="Here's what's happening across WEDDZ IT this month."
       />
 
-      <motion.div
-        initial="hidden" animate="show"
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-      >
-        <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
           <StatCard icon={Users} label="Customers" value={summary?.customers ?? 0} loading={loading} tone="indigo" />
-        </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+        </div>
+        <div>
           <StatCard icon={FolderKanban} label="Active Projects" value={summary?.activeProjects ?? 0} loading={loading} tone="emerald" />
-        </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+        </div>
+        <div>
           <StatCard
             icon={FileText}
             label="Unpaid Invoices"
@@ -70,8 +65,8 @@ export default function DashboardPage() {
             loading={loading}
             tone="amber"
           />
-        </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+        </div>
+        <div>
           <StatCard
             icon={Wallet}
             label="This Month's Expenses"
@@ -79,8 +74,8 @@ export default function DashboardPage() {
             loading={loading}
             tone="rose"
           />
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent projects */}

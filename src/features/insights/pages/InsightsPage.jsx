@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { TrendingUp, TrendingDown, BarChart3, LineChart as LineIcon, Wallet, Users } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Card from '@/components/ui/Card'
 import StatCard from '@/components/ui/StatCard'
@@ -58,35 +57,23 @@ export default function InsightsPage() {
         <div className="flex justify-center py-20"><Spinner size="lg" /></div>
       ) : (
         <>
-          <motion.div
-            initial="hidden" animate="show"
-            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
-            className="grid grid-cols-1 sm:grid-cols-4 gap-4"
-          >
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
-              <StatCard icon={Wallet} tone="emerald" label="Revenue (12mo)" value={formatLKRCompact(totalRevenue)} />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
-              <StatCard icon={Wallet} tone="rose"    label="Expenses (12mo)" value={formatLKRCompact(totalExpenses)} />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
-              <StatCard
-                icon={net >= 0 ? TrendingUp : TrendingDown}
-                tone={net >= 0 ? 'indigo' : 'rose'}
-                label="Net"
-                value={formatLKRCompact(net)}
-              />
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
-              <StatCard
-                icon={trend >= 0 ? TrendingUp : TrendingDown}
-                tone={trend >= 0 ? 'emerald' : 'amber'}
-                label="MoM Revenue Trend"
-                value={`${trend >= 0 ? '+' : ''}${trend.toFixed(1)}%`}
-                hint={prevMonthRev === 0 ? 'No prior data' : 'Vs last month'}
-              />
-            </motion.div>
-          </motion.div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <StatCard icon={Wallet} tone="emerald" label="Revenue (12mo)" value={formatLKRCompact(totalRevenue)} />
+            <StatCard icon={Wallet} tone="rose"    label="Expenses (12mo)" value={formatLKRCompact(totalExpenses)} />
+            <StatCard
+              icon={net >= 0 ? TrendingUp : TrendingDown}
+              tone={net >= 0 ? 'indigo' : 'rose'}
+              label="Net"
+              value={formatLKRCompact(net)}
+            />
+            <StatCard
+              icon={trend >= 0 ? TrendingUp : TrendingDown}
+              tone={trend >= 0 ? 'emerald' : 'amber'}
+              label="MoM Revenue Trend"
+              value={`${trend >= 0 ? '+' : ''}${trend.toFixed(1)}%`}
+              hint={prevMonthRev === 0 ? 'No prior data' : 'Vs last month'}
+            />
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="lg:col-span-2">
