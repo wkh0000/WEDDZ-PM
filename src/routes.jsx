@@ -16,6 +16,7 @@ import ProjectDetailPage from '@/features/projects/pages/ProjectDetailPage'
 import InvoicesListPage from '@/features/invoices/pages/InvoicesListPage'
 import InvoiceDetailPage from '@/features/invoices/pages/InvoiceDetailPage'
 import InvoicePrintPage from '@/features/invoices/pages/InvoicePrintPage'
+import ExpensesListPage from '@/features/expenses/pages/ExpensesListPage'
 
 export default function AppRoutes() {
   return (
@@ -36,7 +37,7 @@ export default function AppRoutes() {
         <Route path="/invoices"   element={<InvoicesListPage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
-        <Route path="/expenses"   element={<ComingSoon title="Expenses"    phase="08" description="Expense list with category filter and monthly summary." />} />
+        <Route path="/expenses"   element={<ExpensesListPage />} />
 
         {/* Super-admin only */}
         <Route path="/employees"      element={<RoleGate><ComingSoon title="Employees" phase="09" description="Employee directory and details." /></RoleGate>} />
