@@ -6,7 +6,6 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable'
 import { ArrowLeft, Plus, Tag } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
@@ -257,7 +256,7 @@ export default function BoardPage() {
         >
           <div className="overflow-x-auto pb-4">
             <SortableContext items={columns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-4 min-h-[60vh]">
+              <div className="flex items-start gap-4 min-h-[60vh]">
                 {columns.map(col => (
                   <Column
                     key={col.id}
@@ -269,7 +268,7 @@ export default function BoardPage() {
                     onDeleteColumn={() => onDeleteCol(col)}
                   />
                 ))}
-              </motion.div>
+              </div>
             </SortableContext>
           </div>
           <DragOverlay>

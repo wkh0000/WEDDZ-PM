@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, ChevronLeft, ChevronRight, Sparkles, Wallet, MoreHorizontal, Pencil, Trash2, CheckCircle2, RotateCcw } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
@@ -150,7 +149,7 @@ export default function SalariesPage() {
           description="Generate from base salaries or add one manually."
         />
       ) : (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
           <Table>
             <THead>
               <TR>
@@ -204,7 +203,7 @@ export default function SalariesPage() {
               ))}
             </tbody>
           </Table>
-        </motion.div>
+        </div>
       )}
 
       <SalaryFormModal

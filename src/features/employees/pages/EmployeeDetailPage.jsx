@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Trash2, Mail, Phone, Briefcase, Calendar, Wallet, UserCog } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -78,7 +77,7 @@ export default function EmployeeDetailPage() {
         }
       />
 
-      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <div className="flex items-start gap-4 mb-5">
             <Avatar name={employee.full_name} src={employee.photo_url} size="xl" />
@@ -116,7 +115,7 @@ export default function EmployeeDetailPage() {
             <Link to="/salaries"><Button variant="subtle" className="w-full">Open salaries page</Button></Link>
           </div>
         </Card>
-      </motion.div>
+      </div>
 
       <Card padded={false}>
         <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">

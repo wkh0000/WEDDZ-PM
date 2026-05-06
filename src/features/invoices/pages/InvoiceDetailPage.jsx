@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Trash2, Printer, CheckCircle2, FileText } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -95,7 +94,7 @@ export default function InvoiceDetailPage() {
         }
       />
 
-      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -159,7 +158,7 @@ export default function InvoiceDetailPage() {
             )}
           </div>
         </Card>
-      </motion.div>
+      </div>
 
       <InvoiceFormModal open={editDisc.open} onClose={editDisc.onClose} invoice={invoice} onSaved={load} />
       <ConfirmDialog

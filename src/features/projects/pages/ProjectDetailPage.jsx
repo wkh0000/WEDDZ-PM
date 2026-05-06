@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Trash2, Calendar, Wallet, Users, KanbanSquare, FileText, Receipt } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -111,7 +110,7 @@ export default function ProjectDetailPage() {
       />
 
       {tab === 'overview' && (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="lg:col-span-2">
             <div className="flex items-center gap-3 mb-4">
               <h3 className="text-sm font-semibold text-zinc-100">Details</h3>
@@ -144,7 +143,7 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       {tab === 'updates' && <ProjectUpdatesLog projectId={id} />}

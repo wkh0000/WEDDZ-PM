@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Users, Building2, Mail, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -100,7 +99,7 @@ export default function CustomersListPage() {
           action={!search && <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add customer</Button>}
         />
       ) : (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
           <Table>
             <THead>
               <TR>
@@ -148,7 +147,7 @@ export default function CustomersListPage() {
               ))}
             </tbody>
           </Table>
-        </motion.div>
+        </div>
       )}
 
       <CustomerFormModal open={formDisc.open} onClose={formDisc.onClose} customer={editing} onSaved={load} />

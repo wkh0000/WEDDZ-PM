@@ -1,14 +1,11 @@
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { ArrowLeft, Compass } from 'lucide-react'
 import Button from '@/components/ui/Button'
 
 export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-zinc-950 bg-app-radial flex items-center justify-center p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+      <div
         className="glass rounded-3xl p-12 max-w-md w-full text-center shadow-glow"
       >
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-5">
@@ -21,7 +18,7 @@ export default function NotFoundPage() {
             Back to dashboard
           </Button>
         </Link>
-      </motion.div>
+      </div>
     </div>
   )
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Search, UserCog, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -104,7 +103,7 @@ export default function EmployeesListPage() {
           action={!search && <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add employee</Button>}
         />
       ) : (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
           <Table>
             <THead>
               <TR>
@@ -146,7 +145,7 @@ export default function EmployeesListPage() {
               ))}
             </tbody>
           </Table>
-        </motion.div>
+        </div>
       )}
 
       <EmployeeFormModal open={formDisc.open} onClose={formDisc.onClose} employee={editing} onSaved={load} />

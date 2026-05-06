@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Search, FileText, MoreHorizontal, Pencil, Trash2, CheckCircle2 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -125,7 +124,7 @@ export default function InvoicesListPage() {
           action={!search && statusFilter === 'all' && <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>New invoice</Button>}
         />
       ) : (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
           <Table>
             <THead>
               <TR>
@@ -165,7 +164,7 @@ export default function InvoicesListPage() {
               ))}
             </tbody>
           </Table>
-        </motion.div>
+        </div>
       )}
 
       <InvoiceFormModal open={formDisc.open} onClose={formDisc.onClose} invoice={editing} onSaved={load} />

@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Plus, Search, Receipt, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -144,7 +143,7 @@ export default function ExpensesListPage() {
           action={<Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add expense</Button>}
         />
       ) : (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
           <Table>
             <THead>
               <TR>
@@ -186,7 +185,7 @@ export default function ExpensesListPage() {
               ))}
             </tbody>
           </Table>
-        </motion.div>
+        </div>
       )}
 
       <ExpenseFormModal open={formDisc.open} onClose={formDisc.onClose} expense={editing} onSaved={load} />

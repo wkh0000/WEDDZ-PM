@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Trash2, Mail, Phone, MapPin, Building2, FolderKanban, FileText } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -102,7 +101,7 @@ export default function CustomerDetailPage() {
       />
 
       {tab === 'overview' && (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="lg:col-span-2">
             <h3 className="text-sm font-semibold text-zinc-100 mb-4">Contact</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
@@ -131,7 +130,7 @@ export default function CustomerDetailPage() {
               <SummaryRow label="Customer since" value={formatDate(customer.created_at)} />
             </div>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       {tab === 'projects' && (

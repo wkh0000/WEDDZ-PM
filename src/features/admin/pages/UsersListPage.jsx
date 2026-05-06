@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Plus, Search, MoreHorizontal, UserPlus, Pencil, Shield, Users } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -94,7 +93,7 @@ export default function UsersListPage() {
           )}
         />
       ) : (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
           <Table>
             <THead>
               <TR>
@@ -153,7 +152,7 @@ export default function UsersListPage() {
               ))}
             </tbody>
           </Table>
-        </motion.div>
+        </div>
       )}
 
       <AddTeamMemberModal open={addDisc.open} onClose={addDisc.onClose} onCreated={load} />

@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Search, FolderKanban, Calendar, Wallet } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -80,17 +79,9 @@ export default function ProjectsListPage() {
           action={!search && statusFilter === 'all' && <Button leftIcon={<Plus className="w-4 h-4" />} onClick={formDisc.onOpen}>New project</Button>}
         />
       ) : (
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(p => (
-            <motion.div
-              key={p.id}
-              variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
-            >
+            <div key={p.id}>
               <Card hover className="cursor-pointer h-full" onClick={() => navigate(`/projects/${p.id}`)}>
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <h3 className="text-base font-semibold text-zinc-100 leading-snug">{p.name}</h3>
@@ -115,9 +106,9 @@ export default function ProjectsListPage() {
                   </div>
                 </div>
               </Card>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
 
       <ProjectFormModal open={formDisc.open} onClose={formDisc.onClose} onSaved={load} />

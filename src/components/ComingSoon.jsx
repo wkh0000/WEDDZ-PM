@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import { Sparkles, ArrowRight } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 
@@ -6,10 +5,7 @@ export default function ComingSoon({ title, phase, description }) {
   return (
     <div className="space-y-6">
       <PageHeader title={title} description={description} />
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
+      <div
         className="glass rounded-2xl p-10 sm:p-14 text-center"
       >
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-5 shadow-glow">
@@ -20,7 +16,7 @@ export default function ComingSoon({ title, phase, description }) {
         <div className="mt-8 inline-flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-300/80 border border-indigo-500/30 rounded-full px-3 py-1.5 bg-indigo-500/[0.08]">
           <ArrowRight className="w-3 h-3" /> Wired up — content lands in this phase
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
