@@ -13,6 +13,9 @@ import CustomersListPage from '@/features/customers/pages/CustomersListPage'
 import CustomerDetailPage from '@/features/customers/pages/CustomerDetailPage'
 import ProjectsListPage from '@/features/projects/pages/ProjectsListPage'
 import ProjectDetailPage from '@/features/projects/pages/ProjectDetailPage'
+import InvoicesListPage from '@/features/invoices/pages/InvoicesListPage'
+import InvoiceDetailPage from '@/features/invoices/pages/InvoiceDetailPage'
+import InvoicePrintPage from '@/features/invoices/pages/InvoicePrintPage'
 
 export default function AppRoutes() {
   return (
@@ -30,9 +33,9 @@ export default function AppRoutes() {
         <Route path="/projects"   element={<ProjectsListPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
         <Route path="/projects/:id/board" element={<ComingSoon title="Kanban" phase="10" description="Drag-and-drop task board with realtime collaboration." />} />
-        <Route path="/invoices"   element={<ComingSoon title="Invoices"    phase="07" description="Invoice list with auto-numbering and status filter." />} />
-        <Route path="/invoices/:id" element={<ComingSoon title="Invoice"   phase="07" description="Invoice detail with line items and mark-as-paid." />} />
-        <Route path="/invoices/:id/print" element={<ComingSoon title="Invoice (Print)" phase="07" description="Printable A4 invoice." />} />
+        <Route path="/invoices"   element={<InvoicesListPage />} />
+        <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+        <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
         <Route path="/expenses"   element={<ComingSoon title="Expenses"    phase="08" description="Expense list with category filter and monthly summary." />} />
 
         {/* Super-admin only */}

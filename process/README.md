@@ -37,4 +37,5 @@ NN-change-<short-name>.md   ← out-of-band changes that don't belong to a phase
 - [05-phase-team-members.md](05-phase-team-members.md) — Phase 04: /admin/users with Add/Edit team member modals (Edge Function client)
 - [06-phase-customers.md](06-phase-customers.md) — Phase 05: customer CRUD with list, detail tabs, and form modal
 - [07-phase-projects.md](07-phase-projects.md) — Phase 06: project CRUD with status filter, updates log, default kanban columns
+- [08-phase-invoices.md](08-phase-invoices.md) — Phase 07: invoice CRUD with auto-numbering, line items, mark paid, print view
 - (more files appear as phases land)
