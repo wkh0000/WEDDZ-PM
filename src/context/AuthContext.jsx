@@ -28,41 +28,49 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // ---- Auth state subscription ----
+  // CRITICAL: do NOT await any Supabase calls inside this callback. The
+  // Supabase client holds an internal auth lock during the callback, and any
+  // awaited query also tries to acquire it — that deadlock leaves the page
+  // hanging on a hard refresh.
+  // We just record the session here. Profile is loaded by a separate effect
+  // below that watches `session`.
   useEffect(() => {
-    // Use onAuthStateChange exclusively. Supabase fires `INITIAL_SESSION`
-    // with the restored session on subscribe — calling getSession() in
-    // parallel can deadlock the internal auth lock and hang loading on
-    // hard refresh.
     let mounted = true
-    let firstFired = false
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    // Pull whatever the SDK has cached without awaiting (returns immediately
+    // from localStorage; no auth lock involved if listener isn't running yet).
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!mounted) return
+        setSession(session)
+        setLoading(false)
+      })
+      .catch(() => { if (mounted) setLoading(false) })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      // synchronous: just record. NO awaiting Supabase calls here.
       if (!mounted) return
       setSession(newSession)
-      if (newSession?.user) {
-        await loadProfile(newSession.user.id)
-      } else {
-        setProfile(null)
-      }
-      firstFired = true
       setLoading(false)
     })
 
-    // Safety: if INITIAL_SESSION never fires (e.g. SDK quirk), unblock the UI.
-    const safety = setTimeout(() => {
-      if (mounted && !firstFired) {
-        console.warn('[auth] INITIAL_SESSION did not fire within 5s; releasing loading state')
-        setLoading(false)
-      }
-    }, 5000)
-
     return () => {
       mounted = false
-      clearTimeout(safety)
       subscription.unsubscribe()
     }
-    // loadProfile is stable (useCallback with []) but include it for lint
-  }, [loadProfile])
+  }, [])
+
+  // ---- Profile loader ----
+  // Runs when session changes. Awaits are safe here because we're outside
+  // the auth lock.
+  useEffect(() => {
+    if (session?.user) {
+      loadProfile(session.user.id)
+    } else {
+      setProfile(null)
+    }
+  }, [session, loadProfile])
 
   const signIn = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
