@@ -22,6 +22,7 @@ import EmployeeDetailPage from '@/features/employees/pages/EmployeeDetailPage'
 import SalariesPage from '@/features/employees/pages/SalariesPage'
 import BoardPage from '@/features/tasks/pages/BoardPage'
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
+import InsightsPage from '@/features/insights/pages/InsightsPage'
 
 export default function AppRoutes() {
   return (
@@ -49,7 +50,7 @@ export default function AppRoutes() {
         <Route path="/employees/:id"  element={<RoleGate><EmployeeDetailPage /></RoleGate>} />
         <Route path="/salaries"       element={<RoleGate><SalariesPage /></RoleGate>} />
 
-        <Route path="/insights" element={<ComingSoon title="Insights" phase="12" description="Revenue, profitability, trends, cash flow." />} />
+        <Route path="/insights" element={<InsightsPage />} />
 
         <Route path="/admin/users" element={<RoleGate><UsersListPage /></RoleGate>} />
         <Route path="/account"     element={<ComingSoon title="Account" phase="13" description="Edit your profile and change your password." />} />
