@@ -20,6 +20,7 @@ import ExpensesListPage from '@/features/expenses/pages/ExpensesListPage'
 import EmployeesListPage from '@/features/employees/pages/EmployeesListPage'
 import EmployeeDetailPage from '@/features/employees/pages/EmployeeDetailPage'
 import SalariesPage from '@/features/employees/pages/SalariesPage'
+import BoardPage from '@/features/tasks/pages/BoardPage'
 
 export default function AppRoutes() {
   return (
@@ -36,7 +37,7 @@ export default function AppRoutes() {
         <Route path="/customers/:id" element={<CustomerDetailPage />} />
         <Route path="/projects"   element={<ProjectsListPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        <Route path="/projects/:id/board" element={<ComingSoon title="Kanban" phase="10" description="Drag-and-drop task board with realtime collaboration." />} />
+        <Route path="/projects/:id/board" element={<BoardPage />} />
         <Route path="/invoices"   element={<InvoicesListPage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
