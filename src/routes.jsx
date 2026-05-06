@@ -8,6 +8,7 @@ import NotFoundPage from '@/components/NotFoundPage'
 import LoginPage from '@/features/auth/pages/LoginPage'
 import SignupPage from '@/features/auth/pages/SignupPage'
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
+import UsersListPage from '@/features/admin/pages/UsersListPage'
 
 export default function AppRoutes() {
   return (
@@ -37,7 +38,7 @@ export default function AppRoutes() {
 
         <Route path="/insights" element={<ComingSoon title="Insights" phase="12" description="Revenue, profitability, trends, cash flow." />} />
 
-        <Route path="/admin/users" element={<RoleGate><ComingSoon title="Team Members" phase="04" description="Add and manage team member access." /></RoleGate>} />
+        <Route path="/admin/users" element={<RoleGate><UsersListPage /></RoleGate>} />
         <Route path="/account"     element={<ComingSoon title="Account" phase="13" description="Edit your profile and change your password." />} />
       </Route>
 

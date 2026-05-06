@@ -34,4 +34,5 @@ NN-change-<short-name>.md   ← out-of-band changes that don't belong to a phase
 - [02-phase-foundation.md](02-phase-foundation.md) — Phase 01: Vite + React + Tailwind scaffold, deps, lib utilities
 - [03-phase-database.md](03-phase-database.md) — Phase 02: SQL migration, storage policies, Edge Function for team member creation
 - [04-phase-auth-layout.md](04-phase-auth-layout.md) — Phase 03: Auth context, layout shell, route guards, UI primitives
+- [05-phase-team-members.md](05-phase-team-members.md) — Phase 04: /admin/users with Add/Edit team member modals (Edge Function client)
 - (more files appear as phases land)
