@@ -1,6 +1,6 @@
 # Process Folder
 
-This folder is the implementation log for **FellowCRM**. Every meaningful change to the project is captured here as a numbered Markdown file so we can trace decisions, rationale, and acceptance criteria long after the fact.
+This folder is the implementation log for **WEDDZ PM**. Every meaningful change to the project is captured here as a numbered Markdown file so we can trace decisions, rationale, and acceptance criteria long after the fact.
 
 ## Naming convention
 
@@ -30,4 +30,5 @@ NN-change-<short-name>.md   ← out-of-band changes that don't belong to a phase
 ## Index
 
 - [00-MASTER-PLAN.md](00-MASTER-PLAN.md) — full architecture, schema, phases, conventions
+- [01-change-rename-and-multiuser.md](01-change-rename-and-multiuser.md) — rename FellowCRM → WEDDZ PM, switch to multi-user shared workspace with roles
 - (more files appear as phases land)
