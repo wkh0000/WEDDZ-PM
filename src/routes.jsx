@@ -21,6 +21,7 @@ import EmployeesListPage from '@/features/employees/pages/EmployeesListPage'
 import EmployeeDetailPage from '@/features/employees/pages/EmployeeDetailPage'
 import SalariesPage from '@/features/employees/pages/SalariesPage'
 import BoardPage from '@/features/tasks/pages/BoardPage'
+import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 
 export default function AppRoutes() {
   return (
@@ -32,7 +33,7 @@ export default function AppRoutes() {
 
       {/* Authenticated, inside AppShell */}
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-        <Route path="/"           element={<ComingSoon title="Dashboard"   phase="11" description="Stat cards, recent projects, upcoming invoices." />} />
+        <Route path="/"           element={<DashboardPage />} />
         <Route path="/customers"  element={<CustomersListPage />} />
         <Route path="/customers/:id" element={<CustomerDetailPage />} />
         <Route path="/projects"   element={<ProjectsListPage />} />
