@@ -11,6 +11,8 @@ import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
 import UsersListPage from '@/features/admin/pages/UsersListPage'
 import CustomersListPage from '@/features/customers/pages/CustomersListPage'
 import CustomerDetailPage from '@/features/customers/pages/CustomerDetailPage'
+import ProjectsListPage from '@/features/projects/pages/ProjectsListPage'
+import ProjectDetailPage from '@/features/projects/pages/ProjectDetailPage'
 
 export default function AppRoutes() {
   return (
@@ -25,8 +27,8 @@ export default function AppRoutes() {
         <Route path="/"           element={<ComingSoon title="Dashboard"   phase="11" description="Stat cards, recent projects, upcoming invoices." />} />
         <Route path="/customers"  element={<CustomersListPage />} />
         <Route path="/customers/:id" element={<CustomerDetailPage />} />
-        <Route path="/projects"   element={<ComingSoon title="Projects"    phase="06" description="Project list with status filter." />} />
-        <Route path="/projects/:id" element={<ComingSoon title="Project"   phase="06" description="Project detail with updates, invoices, expenses." />} />
+        <Route path="/projects"   element={<ProjectsListPage />} />
+        <Route path="/projects/:id" element={<ProjectDetailPage />} />
         <Route path="/projects/:id/board" element={<ComingSoon title="Kanban" phase="10" description="Drag-and-drop task board with realtime collaboration." />} />
         <Route path="/invoices"   element={<ComingSoon title="Invoices"    phase="07" description="Invoice list with auto-numbering and status filter." />} />
         <Route path="/invoices/:id" element={<ComingSoon title="Invoice"   phase="07" description="Invoice detail with line items and mark-as-paid." />} />
