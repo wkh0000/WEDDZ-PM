@@ -55,4 +55,8 @@ npm run dev
 
 ## Status
 
-Pre-implementation. Phase 01 (Foundation) is next.
+🟢 **Live** at https://weddz-pm.vercel.app/
+
+All 13 phases complete. Founder + first member signed in. End-to-end QA passed for: auth, RLS, customers CRUD, projects CRUD with auto-created kanban columns, kanban (board + task drawer + comments + attachments + labels), invoices, expenses, employees + salaries, dashboard, insights, and the `create-team-member` Edge Function.
+
+Public signup is disabled — new team members are added via `/admin/users` (super_admin only).
