@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, Mail, Database, Clock, ShieldCheck } from 'lucide-react'
+import { Download, Mail, Database, Clock, ShieldCheck, FileJson, FileCode } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -10,20 +10,38 @@ import { useToast } from '@/context/ToastContext'
 import { useAuth } from '@/context/AuthContext'
 import { triggerBackup } from '../api'
 
+// base64 → Uint8Array (for binary-safe download blobs).
+function b64ToBytes(b64) {
+  const bin = atob(b64)
+  const arr = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+  return arr
+}
+
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([b64ToBytes(content)], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export default function BackupsPage() {
   const toast = useToast()
   const { profile } = useAuth()
   const [recipient, setRecipient] = useState(profile?.email ?? '')
   const [busyEmail, setBusyEmail] = useState(false)
-  const [busyDownload, setBusyDownload] = useState(false)
+  // Per-format download busy flags so two clicks don't fight each other.
+  const [busyDownload, setBusyDownload] = useState(/** @type {null|'json'|'sql'|'both'} */ (null))
   const [lastResult, setLastResult] = useState(null)
 
   async function onEmail() {
     setBusyEmail(true)
     try {
-      const data = await triggerBackup({ mode: 'email', emailTo: recipient || undefined })
+      const data = await triggerBackup({ mode: 'email', format: 'both', emailTo: recipient || undefined })
       setLastResult(data)
-      toast.success(`Backup emailed to ${data.sent_to}`)
+      toast.success(`Backup (JSON + SQL) emailed to ${data.sent_to}`)
     } catch (e) {
       toast.error(e.message || 'Backup failed')
     } finally {
@@ -31,23 +49,22 @@ export default function BackupsPage() {
     }
   }
 
-  async function onDownload() {
-    setBusyDownload(true)
+  async function onDownload(format) {
+    setBusyDownload(format)
     try {
-      const data = await triggerBackup({ mode: 'download' })
+      const data = await triggerBackup({ mode: 'download', format })
       setLastResult(data)
-      const text = atob(data.content_base64)
-      const blob = new Blob([text], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = data.filename
-      document.body.appendChild(a); a.click(); a.remove()
-      URL.revokeObjectURL(url)
-      toast.success('Downloaded')
+      if ((format === 'json' || format === 'both') && data.content_base64) {
+        downloadBlob(data.content_base64, data.filename, 'application/json')
+      }
+      if ((format === 'sql' || format === 'both') && data.sql_base64) {
+        downloadBlob(data.sql_base64, data.sql_filename, 'application/sql')
+      }
+      toast.success(format === 'both' ? 'Downloaded JSON + SQL' : `Downloaded ${format.toUpperCase()}`)
     } catch (e) {
       toast.error(e.message || 'Backup failed')
     } finally {
-      setBusyDownload(false)
+      setBusyDownload(null)
     }
   }
 
@@ -55,7 +72,7 @@ export default function BackupsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Backups"
-        description="Capture a JSON snapshot of every business table. Daily backup runs automatically; trigger ad-hoc here."
+        description="Capture a snapshot of every business table — JSON for inspection, SQL for direct restore. Daily backup runs automatically; trigger ad-hoc here."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -76,8 +93,8 @@ export default function BackupsPage() {
             </span>
             <div className="text-xs uppercase tracking-widest text-zinc-500">Tables captured</div>
           </div>
-          <div className="text-sm font-semibold text-zinc-100">18</div>
-          <div className="text-xs text-zinc-500 mt-1">profiles, customers, projects, invoices, expenses, kanban &amp; more.</div>
+          <div className="text-sm font-semibold text-zinc-100">21</div>
+          <div className="text-xs text-zinc-500 mt-1">profiles, customers, projects, phases, documents, invoices, expenses, kanban &amp; more.</div>
         </Card>
         <Card>
           <div className="flex items-center gap-2 mb-2">
@@ -98,7 +115,7 @@ export default function BackupsPage() {
           </span>
           <div className="flex-1">
             <h3 className="text-base font-semibold text-zinc-100">Trigger a backup now</h3>
-            <p className="text-sm text-zinc-400">Email the snapshot to the address below, or download it as a JSON file.</p>
+            <p className="text-sm text-zinc-400">Email the snapshot (JSON + SQL attached) to the address below, or download a specific format.</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
               <div className="space-y-2">
@@ -115,10 +132,31 @@ export default function BackupsPage() {
                 </Button>
               </div>
               <div className="space-y-2 sm:pt-7">
-                <Button onClick={onDownload} loading={busyDownload} variant="subtle" leftIcon={<Download className="w-4 h-4" />} className="w-full">
-                  Download JSON
-                </Button>
-                <p className="text-xs text-zinc-500">Browser downloads the snapshot directly. Nothing emailed.</p>
+                <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Download</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    onClick={() => onDownload('json')} loading={busyDownload === 'json'}
+                    disabled={busyDownload && busyDownload !== 'json'}
+                    variant="subtle" size="sm" leftIcon={<FileJson className="w-3.5 h-3.5" />}
+                  >
+                    JSON
+                  </Button>
+                  <Button
+                    onClick={() => onDownload('sql')} loading={busyDownload === 'sql'}
+                    disabled={busyDownload && busyDownload !== 'sql'}
+                    variant="subtle" size="sm" leftIcon={<FileCode className="w-3.5 h-3.5" />}
+                  >
+                    SQL
+                  </Button>
+                  <Button
+                    onClick={() => onDownload('both')} loading={busyDownload === 'both'}
+                    disabled={busyDownload && busyDownload !== 'both'}
+                    variant="subtle" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}
+                  >
+                    Both
+                  </Button>
+                </div>
+                <p className="text-xs text-zinc-500">SQL = INSERT statements wrapped in BEGIN/COMMIT — replay with psql to restore. JSON = pretty-printed for inspection.</p>
               </div>
             </div>
           </div>
@@ -130,7 +168,10 @@ export default function BackupsPage() {
           <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-zinc-100">Last backup</h3>
             <span className="text-xs text-zinc-500">
-              {lastResult.filename} · {(lastResult.snapshot_size_bytes / 1024).toFixed(1)} KB
+              {[
+                lastResult.snapshot_size_bytes ? `JSON ${(lastResult.snapshot_size_bytes / 1024).toFixed(1)} KB` : null,
+                lastResult.sql_size_bytes ? `SQL ${(lastResult.sql_size_bytes / 1024).toFixed(1)} KB` : null
+              ].filter(Boolean).join(' · ')}
               {lastResult.email_id && <> · email <span className="font-mono">{lastResult.email_id.slice(0, 8)}…</span></>}
             </span>
           </div>

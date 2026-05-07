@@ -58,9 +58,15 @@ export function generateTempPassword(length = 12) {
   return [...required, ...rest].sort(() => Math.random() - 0.5).join('')
 }
 
-/** Trigger backup-snapshot Edge Function. mode: 'email' or 'download'. */
-export async function triggerBackup({ mode = 'email', emailTo } = {}) {
-  const body = {}
+/**
+ * Trigger backup-snapshot Edge Function.
+ * @param {Object} opts
+ * @param {'email'|'download'} opts.mode
+ * @param {'json'|'sql'|'both'} opts.format - default 'both'
+ * @param {string} opts.emailTo - override recipient (email mode only)
+ */
+export async function triggerBackup({ mode = 'email', format = 'both', emailTo } = {}) {
+  const body = { format }
   if (mode === 'download') body.download_only = true
   if (emailTo) body.email_to = emailTo
   const { data, error } = await supabase.functions.invoke('backup-snapshot', { body })
