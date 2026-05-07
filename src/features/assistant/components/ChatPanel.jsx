@@ -116,7 +116,7 @@ export default function ChatPanel({ open, onClose }) {
                 </span>
                 <div className="leading-tight">
                   <div className="text-sm font-semibold text-zinc-100">Assistant</div>
-                  <div className="text-[10px] uppercase tracking-widest text-zinc-500">Llama 4 · WEDDZ PM</div>
+                  <div className="text-[10px] uppercase tracking-widest text-zinc-500">GPT-4.1 nano · WEDDZ PM</div>
                 </div>
               </div>
               <div className="flex items-center gap-1">
