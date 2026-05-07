@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { generateUniqueSlug } from '@/lib/slug'
 
 const DEFAULT_COLUMNS = [
   { name: 'To Do',       position: 0 },
@@ -10,7 +11,7 @@ const DEFAULT_COLUMNS = [
 export async function listProjects(options = {}) {
   let q = supabase
     .from('projects')
-    .select('id, name, status, budget, start_date, end_date, created_at, customer_id, customer:customers(id,name,company)')
+    .select('id, slug, name, status, budget, start_date, end_date, created_at, customer_id, customer:customers(id,slug,name,company)')
     .order('created_at', { ascending: false })
   if (options.status) q = q.eq('status', options.status)
   const { data, error } = await q
@@ -21,8 +22,22 @@ export async function listProjects(options = {}) {
 export async function getProject(id) {
   const { data, error } = await supabase
     .from('projects')
-    .select('*, customer:customers(id,name,company,email)')
+    .select('*, customer:customers(id,slug,name,company,email)')
     .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
+/**
+ * Lookup by slug (e.g. 'onscene-event-web'). Used by the detail
+ * page when reading the slug from the URL.
+ */
+export async function getProjectBySlug(slug) {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*, customer:customers(id,slug,name,company,email)')
+    .eq('slug', slug)
     .single()
   if (error) throw error
   return data
@@ -30,9 +45,10 @@ export async function getProject(id) {
 
 export async function createProject(payload) {
   const { data: { user } } = await supabase.auth.getUser()
+  const slug = await generateUniqueSlug('projects', payload.name)
   const { data: project, error } = await supabase
     .from('projects')
-    .insert({ ...payload, created_by: user?.id })
+    .insert({ ...payload, slug, created_by: user?.id })
     .select()
     .single()
   if (error) throw error
@@ -50,9 +66,15 @@ export async function createProject(payload) {
 }
 
 export async function updateProject(id, updates) {
+  // If the name changed, regenerate the slug to match.
+  let next = updates
+  if (typeof updates.name === 'string' && updates.name.trim()) {
+    const slug = await generateUniqueSlug('projects', updates.name, { excludeId: id })
+    next = { ...updates, slug }
+  }
   const { data, error } = await supabase
     .from('projects')
-    .update(updates)
+    .update(next)
     .eq('id', id)
     .select()
     .single()

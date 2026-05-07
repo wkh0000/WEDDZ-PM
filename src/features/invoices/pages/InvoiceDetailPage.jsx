@@ -10,12 +10,13 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useToast } from '@/context/ToastContext'
 import { formatDate, formatDateTime, formatLKR } from '@/lib/format'
-import { getInvoice, listInvoiceItems, deleteInvoice, markInvoicePaid } from '../api'
+import { isUuid } from '@/lib/slug'
+import { getInvoice, getInvoiceByNumber, listInvoiceItems, deleteInvoice, markInvoicePaid } from '../api'
 import { invoiceStatusBadge } from '../components/InvoiceStatusBadge'
 import InvoiceFormModal from '../components/InvoiceFormModal'
 
 export default function InvoiceDetailPage() {
-  const { id } = useParams()
+  const { invoiceNo } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
   const editDisc = useDisclosure()
@@ -25,13 +26,22 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => { load() }, [invoiceNo])
   useEffect(() => { document.title = `${invoice?.invoice_no ?? 'Invoice'} · WEDDZ PM` }, [invoice])
 
   async function load() {
     setLoading(true)
     try {
-      const [inv, its] = await Promise.all([getInvoice(id), listInvoiceItems(id)])
+      // Backwards-compat: if the URL param looks like a UUID, fall back
+      // to id-lookup and replace the URL with the canonical invoice_no.
+      let inv
+      if (isUuid(invoiceNo)) {
+        inv = await getInvoice(invoiceNo)
+        if (inv?.invoice_no) navigate(`/invoices/${inv.invoice_no}`, { replace: true })
+      } else {
+        inv = await getInvoiceByNumber(invoiceNo)
+      }
+      const its = await listInvoiceItems(inv.id)
       setInvoice(inv); setItems(its)
     } catch (err) {
       toast.error(err.message || 'Failed to load invoice')
@@ -41,8 +51,9 @@ export default function InvoiceDetailPage() {
   }
 
   async function onMarkPaid() {
+    if (!invoice) return
     try {
-      const updated = await markInvoicePaid(id)
+      const updated = await markInvoicePaid(invoice.id)
       setInvoice(prev => ({ ...prev, ...updated }))
       toast.success('Marked as paid')
     } catch (err) {
@@ -51,9 +62,10 @@ export default function InvoiceDetailPage() {
   }
 
   async function onDelete() {
+    if (!invoice) return
     setBusy(true)
     try {
-      await deleteInvoice(id)
+      await deleteInvoice(invoice.id)
       toast.success('Invoice removed')
       navigate('/invoices')
     } catch (err) {
@@ -85,7 +97,7 @@ export default function InvoiceDetailPage() {
             {invoice.status !== 'paid' && (
               <Button variant="success" leftIcon={<CheckCircle2 className="w-4 h-4" />} onClick={onMarkPaid}>Mark paid</Button>
             )}
-            <Link to={`/invoices/${invoice.id}/print`}>
+            <Link to={`/invoices/${invoice.invoice_no}/print`}>
               <Button variant="subtle" leftIcon={<Printer className="w-4 h-4" />}>Print</Button>
             </Link>
             <Button variant="subtle" leftIcon={<Pencil className="w-4 h-4" />} onClick={editDisc.onOpen}>Edit</Button>
@@ -153,7 +165,7 @@ export default function InvoiceDetailPage() {
             {invoice.project && (
               <div className="border-t border-white/10 pt-3">
                 <div className="text-xs text-zinc-500">Linked to project</div>
-                <Link to={`/projects/${invoice.project.id}`} className="text-indigo-300 hover:text-indigo-200">{invoice.project.name}</Link>
+                <Link to={`/projects/${invoice.project.slug}`} className="text-indigo-300 hover:text-indigo-200">{invoice.project.name}</Link>
               </div>
             )}
           </div>

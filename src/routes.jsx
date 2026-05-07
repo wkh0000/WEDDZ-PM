@@ -45,18 +45,18 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/"           element={<DashboardPage />} />
         <Route path="/customers"  element={<CustomersListPage />} />
-        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+        <Route path="/customers/:slug" element={<CustomerDetailPage />} />
         <Route path="/projects"   element={<ProjectsListPage />} />
-        <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        <Route path="/projects/:id/board" element={<Suspense fallback={<PageLoader />}><BoardPage /></Suspense>} />
+        <Route path="/projects/:slug" element={<ProjectDetailPage />} />
+        <Route path="/projects/:slug/board" element={<Suspense fallback={<PageLoader />}><BoardPage /></Suspense>} />
         <Route path="/invoices"   element={<InvoicesListPage />} />
-        <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
-        <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
+        <Route path="/invoices/:invoiceNo" element={<InvoiceDetailPage />} />
+        <Route path="/invoices/:invoiceNo/print" element={<InvoicePrintPage />} />
         <Route path="/expenses"   element={<ExpensesListPage />} />
 
         {/* Super-admin only */}
         <Route path="/employees"      element={<RoleGate><EmployeesListPage /></RoleGate>} />
-        <Route path="/employees/:id"  element={<RoleGate><EmployeeDetailPage /></RoleGate>} />
+        <Route path="/employees/:slug" element={<RoleGate><EmployeeDetailPage /></RoleGate>} />
         <Route path="/salaries"       element={<RoleGate><SalariesPage /></RoleGate>} />
 
         <Route path="/insights" element={<Suspense fallback={<PageLoader />}><InsightsPage /></Suspense>} />

@@ -114,7 +114,7 @@ export default function CustomersListPage() {
               {filtered.map(c => (
                 <TR key={c.id}>
                   <TD>
-                    <Link to={`/customers/${c.id}`} className="font-medium text-zinc-100 hover:text-indigo-300 transition-colors">
+                    <Link to={`/customers/${c.slug}`} className="font-medium text-zinc-100 hover:text-indigo-300 transition-colors">
                       {c.name}
                     </Link>
                   </TD>

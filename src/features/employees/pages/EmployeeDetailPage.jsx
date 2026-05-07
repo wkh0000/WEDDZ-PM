@@ -13,11 +13,12 @@ import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useToast } from '@/context/ToastContext'
 import { formatLKR, formatDate, formatMonth } from '@/lib/format'
-import { getEmployee, deleteEmployee, listEmployeeSalaries, EMPLOYMENT_TYPES } from '../api'
+import { isUuid } from '@/lib/slug'
+import { getEmployee, getEmployeeBySlug, deleteEmployee, listEmployeeSalaries, EMPLOYMENT_TYPES } from '../api'
 import EmployeeFormModal from '../components/EmployeeFormModal'
 
 export default function EmployeeDetailPage() {
-  const { id } = useParams()
+  const { slug } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
   const editDisc = useDisclosure()
@@ -27,13 +28,20 @@ export default function EmployeeDetailPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => { load() }, [slug])
   useEffect(() => { document.title = `${employee?.full_name ?? 'Employee'} · WEDDZ PM` }, [employee])
 
   async function load() {
     setLoading(true)
     try {
-      const [e, s] = await Promise.all([getEmployee(id), listEmployeeSalaries(id)])
+      let e
+      if (isUuid(slug)) {
+        e = await getEmployee(slug)
+        if (e?.slug) navigate(`/employees/${e.slug}`, { replace: true })
+      } else {
+        e = await getEmployeeBySlug(slug)
+      }
+      const s = await listEmployeeSalaries(e.id)
       setEmployee(e); setSalaries(s)
     } catch (err) {
       toast.error(err.message || 'Failed to load')
@@ -43,8 +51,9 @@ export default function EmployeeDetailPage() {
   }
 
   async function onDelete() {
+    if (!employee) return
     setBusy(true)
-    try { await deleteEmployee(id); toast.success('Employee removed'); navigate('/employees') }
+    try { await deleteEmployee(employee.id); toast.success('Employee removed'); navigate('/employees') }
     catch (err) { toast.error(err.message || 'Failed to delete'); setBusy(false) }
   }
 

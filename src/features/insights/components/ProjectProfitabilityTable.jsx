@@ -20,7 +20,7 @@ export default function ProjectProfitabilityTable({ rows }) {
         {rows.map(r => (
           <TR key={r.id} hover>
             <TD>
-              <Link to={`/projects/${r.id}`} className="font-medium text-zinc-100 hover:text-indigo-300">{r.name}</Link>
+              <Link to={`/projects/${r.slug}`} className="font-medium text-zinc-100 hover:text-indigo-300">{r.name}</Link>
             </TD>
             <TD className="text-zinc-300">{r.customerName}</TD>
             <TD>{projectStatusBadge(r.status)}</TD>

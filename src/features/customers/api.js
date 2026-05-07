@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { generateUniqueSlug } from '@/lib/slug'
 
 export async function listCustomers() {
   const { data, error } = await supabase
@@ -19,11 +20,26 @@ export async function getCustomer(id) {
   return data
 }
 
-export async function createCustomer(payload) {
-  const { data: { user } } = await supabase.auth.getUser()
+/**
+ * Lookup by slug (e.g. 'mr-saniru'). Used by the customer detail
+ * page when reading the slug from the URL.
+ */
+export async function getCustomerBySlug(slug) {
   const { data, error } = await supabase
     .from('customers')
-    .insert({ ...payload, created_by: user?.id })
+    .select('*')
+    .eq('slug', slug)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function createCustomer(payload) {
+  const { data: { user } } = await supabase.auth.getUser()
+  const slug = await generateUniqueSlug('customers', payload.name)
+  const { data, error } = await supabase
+    .from('customers')
+    .insert({ ...payload, slug, created_by: user?.id })
     .select()
     .single()
   if (error) throw error
@@ -31,9 +47,14 @@ export async function createCustomer(payload) {
 }
 
 export async function updateCustomer(id, updates) {
+  let next = updates
+  if (typeof updates.name === 'string' && updates.name.trim()) {
+    const slug = await generateUniqueSlug('customers', updates.name, { excludeId: id })
+    next = { ...updates, slug }
+  }
   const { data, error } = await supabase
     .from('customers')
-    .update(updates)
+    .update(next)
     .eq('id', id)
     .select()
     .single()
@@ -49,7 +70,7 @@ export async function deleteCustomer(id) {
 export async function listCustomerProjects(customerId) {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, name, status, budget, start_date, end_date, created_at')
+    .select('id, slug, name, status, budget, start_date, end_date, created_at')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
   if (error) throw error

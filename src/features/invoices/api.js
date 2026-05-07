@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 export async function listInvoices(options = {}) {
   let q = supabase
     .from('invoices')
-    .select('id, invoice_no, status, total, issue_date, due_date, paid_at, customer:customers(id,name,company), project:projects(id,name)')
+    .select('id, invoice_no, status, total, issue_date, due_date, paid_at, customer:customers(id,slug,name,company), project:projects(id,slug,name)')
     .order('created_at', { ascending: false })
   if (options.status) q = q.eq('status', options.status)
   const { data, error } = await q
@@ -14,8 +14,22 @@ export async function listInvoices(options = {}) {
 export async function getInvoice(id) {
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, customer:customers(id,name,company,email,phone,address), project:projects(id,name)')
+    .select('*, customer:customers(id,slug,name,company,email,phone,address), project:projects(id,slug,name)')
     .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
+/**
+ * Lookup by invoice_no (e.g. 'INV-LMS-ADV-001'). Invoice numbers are
+ * already URL-safe and unique, so they double as the slug for routes.
+ */
+export async function getInvoiceByNumber(invoiceNo) {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*, customer:customers(id,slug,name,company,email,phone,address), project:projects(id,slug,name)')
+    .eq('invoice_no', invoiceNo)
     .single()
   if (error) throw error
   return data

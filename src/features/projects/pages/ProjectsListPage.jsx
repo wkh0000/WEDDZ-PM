@@ -82,7 +82,7 @@ export default function ProjectsListPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(p => (
             <div key={p.id}>
-              <Card hover className="cursor-pointer h-full" onClick={() => navigate(`/projects/${p.id}`)}>
+              <Card hover className="cursor-pointer h-full" onClick={() => navigate(`/projects/${p.slug}`)}>
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <h3 className="text-base font-semibold text-zinc-100 leading-snug">{p.name}</h3>
                   {projectStatusBadge(p.status)}

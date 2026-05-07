@@ -115,7 +115,7 @@ export default function EmployeesListPage() {
             </THead>
             <tbody>
               {filtered.map(e => (
-                <TR key={e.id} hover onClick={() => navigate(`/employees/${e.id}`)}>
+                <TR key={e.id} hover onClick={() => navigate(`/employees/${e.slug}`)}>
                   <TD>
                     <div className="flex items-center gap-3">
                       <Avatar name={e.full_name} src={e.photo_url} size="sm" />

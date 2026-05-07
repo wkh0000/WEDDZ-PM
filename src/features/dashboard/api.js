@@ -32,7 +32,7 @@ export async function dashboardSummary() {
 export async function recentProjects(limit = 5) {
   const { data, error } = await supabase
     .from('projects')
-    .select('id,name,status,budget,start_date,end_date,updated_at,customer:customers(id,name,company)')
+    .select('id,slug,name,status,budget,start_date,end_date,updated_at,customer:customers(id,slug,name,company)')
     .order('updated_at', { ascending: false })
     .limit(limit)
   if (error) throw error
@@ -44,7 +44,7 @@ export async function upcomingInvoices(days = 14) {
   const future = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const { data, error } = await supabase
     .from('invoices')
-    .select('id,invoice_no,status,total,due_date,customer:customers(id,name,company)')
+    .select('id,invoice_no,status,total,due_date,customer:customers(id,slug,name,company)')
     .in('status', ['sent', 'overdue', 'draft'])
     .not('due_date', 'is', null)
     .gte('due_date', today)

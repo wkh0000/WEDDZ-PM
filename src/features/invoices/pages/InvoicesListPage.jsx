@@ -137,7 +137,7 @@ export default function InvoicesListPage() {
               {filtered.map(i => (
                 <TR key={i.id}>
                   <TD>
-                    <Link to={`/invoices/${i.id}`} className="font-mono text-sm font-medium text-zinc-100 hover:text-indigo-300">{i.invoice_no}</Link>
+                    <Link to={`/invoices/${i.invoice_no}`} className="font-mono text-sm font-medium text-zinc-100 hover:text-indigo-300">{i.invoice_no}</Link>
                   </TD>
                   <TD className="text-zinc-300">{i.customer?.company || i.customer?.name || '—'}</TD>
                   <TD>{invoiceStatusBadge(i.status)}</TD>
@@ -152,7 +152,7 @@ export default function InvoicesListPage() {
                         </button>
                       }
                       items={[
-                        { label: 'View / print', icon: FileText, onClick: () => navigate(`/invoices/${i.id}`) },
+                        { label: 'View / print', icon: FileText, onClick: () => navigate(`/invoices/${i.invoice_no}`) },
                         { label: 'Edit',         icon: Pencil,   onClick: () => openEdit(i) },
                         ...(i.status !== 'paid' ? [{ label: 'Mark as paid', icon: CheckCircle2, onClick: () => onMarkPaid(i) }] : []),
                         { separator: true },

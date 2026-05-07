@@ -48,7 +48,7 @@ export async function monthlyRevenueExpenses(months = 12) {
 /** All projects with revenue + expenses + net */
 export async function projectProfitability() {
   const [{ data: projects, error: e1 }, { data: invoices, error: e2 }, { data: expenses, error: e3 }] = await Promise.all([
-    supabase.from('projects').select('id, name, status, budget, customer:customers(name,company)'),
+    supabase.from('projects').select('id, slug, name, status, budget, customer:customers(slug,name,company)'),
     supabase.from('invoices').select('project_id, total, status'),
     supabase.from('expenses').select('project_id, amount')
   ])

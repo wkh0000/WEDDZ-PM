@@ -12,7 +12,8 @@ import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useToast } from '@/context/ToastContext'
 import { formatDate, formatLKR } from '@/lib/format'
-import { getProject, deleteProject, listProjectInvoices, listProjectExpenses } from '../api'
+import { isUuid } from '@/lib/slug'
+import { getProject, getProjectBySlug, deleteProject, listProjectInvoices, listProjectExpenses } from '../api'
 import ProjectFormModal from '../components/ProjectFormModal'
 import ProjectUpdatesLog from '../components/ProjectUpdatesLog'
 import PhasesTab from '../components/PhasesTab'
@@ -21,7 +22,7 @@ import { projectStatusBadge } from '../components/ProjectStatusBadge'
 import { invoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge'
 
 export default function ProjectDetailPage() {
-  const { id } = useParams()
+  const { slug } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
   const editDisc = useDisclosure()
@@ -33,16 +34,24 @@ export default function ProjectDetailPage() {
   const [tab, setTab] = useState('overview')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => { load() }, [slug])
   useEffect(() => { document.title = `${project?.name ?? 'Project'} · WEDDZ PM` }, [project])
 
   async function load() {
     setLoading(true)
     try {
-      const [p, inv, exp] = await Promise.all([
-        getProject(id),
-        listProjectInvoices(id),
-        listProjectExpenses(id)
+      // Backwards-compat: if the URL param looks like a UUID, fall back
+      // to id-lookup and immediately replace with the canonical slug URL.
+      let p
+      if (isUuid(slug)) {
+        p = await getProject(slug)
+        if (p?.slug) navigate(`/projects/${p.slug}`, { replace: true })
+      } else {
+        p = await getProjectBySlug(slug)
+      }
+      const [inv, exp] = await Promise.all([
+        listProjectInvoices(p.id),
+        listProjectExpenses(p.id)
       ])
       setProject(p); setInvoices(inv); setExpenses(exp)
     } catch (err) {
@@ -53,9 +62,10 @@ export default function ProjectDetailPage() {
   }
 
   async function onDelete() {
+    if (!project) return
     setBusy(true)
     try {
-      await deleteProject(id)
+      await deleteProject(project.id)
       toast.success('Project removed')
       navigate('/projects')
     } catch (err) {
@@ -86,12 +96,12 @@ export default function ProjectDetailPage() {
         title={project.name}
         description={
           project.customer
-            ? <>Customer: <Link to={`/customers/${project.customer.id}`} className="text-indigo-300 hover:text-indigo-200">{project.customer.company || project.customer.name}</Link></>
+            ? <>Customer: <Link to={`/customers/${project.customer.slug}`} className="text-indigo-300 hover:text-indigo-200">{project.customer.company || project.customer.name}</Link></>
             : 'Internal project'
         }
         actions={
           <>
-            <Link to={`/projects/${id}/board`}>
+            <Link to={`/projects/${project.slug}/board`}>
               <Button variant="primary" leftIcon={<KanbanSquare className="w-4 h-4" />}>Open board</Button>
             </Link>
             <Button variant="subtle" leftIcon={<Pencil className="w-4 h-4" />} onClick={editDisc.onOpen}>Edit</Button>
@@ -113,8 +123,8 @@ export default function ProjectDetailPage() {
         ]}
       />
 
-      {tab === 'phases'    && <PhasesTab projectId={id} />}
-      {tab === 'documents' && <DocumentsTab projectId={id} />}
+      {tab === 'phases'    && <PhasesTab projectId={project.id} />}
+      {tab === 'documents' && <DocumentsTab projectId={project.id} />}
 
       {tab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -153,7 +163,7 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {tab === 'updates' && <ProjectUpdatesLog projectId={id} />}
+      {tab === 'updates' && <ProjectUpdatesLog projectId={project.id} />}
 
       {tab === 'invoices' && (
         invoices.length === 0
@@ -165,7 +175,7 @@ export default function ProjectDetailPage() {
               </THead>
               <tbody>
                 {invoices.map(i => (
-                  <TR key={i.id} hover onClick={() => navigate(`/invoices/${i.id}`)}>
+                  <TR key={i.id} hover onClick={() => navigate(`/invoices/${i.invoice_no}`)}>
                     <TD className="font-mono text-sm text-zinc-100">{i.invoice_no}</TD>
                     <TD>{invoiceStatusBadge(i.status)}</TD>
                     <TD align="right">{formatLKR(i.total)}</TD>

@@ -13,13 +13,14 @@ import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useToast } from '@/context/ToastContext'
 import { formatDate, formatLKR } from '@/lib/format'
-import { getCustomer, deleteCustomer, listCustomerProjects, listCustomerInvoices } from '../api'
+import { isUuid } from '@/lib/slug'
+import { getCustomer, getCustomerBySlug, deleteCustomer, listCustomerProjects, listCustomerInvoices } from '../api'
 import CustomerFormModal from '../components/CustomerFormModal'
 import { projectStatusBadge } from '@/features/projects/components/ProjectStatusBadge'
 import { invoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge'
 
 export default function CustomerDetailPage() {
-  const { id } = useParams()
+  const { slug } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
   const editDisc = useDisclosure()
@@ -31,16 +32,22 @@ export default function CustomerDetailPage() {
   const [tab, setTab] = useState('overview')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => { load() }, [slug])
   useEffect(() => { document.title = `${customer?.name ?? 'Customer'} · WEDDZ PM` }, [customer])
 
   async function load() {
     setLoading(true)
     try {
-      const [c, ps, inv] = await Promise.all([
-        getCustomer(id),
-        listCustomerProjects(id),
-        listCustomerInvoices(id)
+      let c
+      if (isUuid(slug)) {
+        c = await getCustomer(slug)
+        if (c?.slug) navigate(`/customers/${c.slug}`, { replace: true })
+      } else {
+        c = await getCustomerBySlug(slug)
+      }
+      const [ps, inv] = await Promise.all([
+        listCustomerProjects(c.id),
+        listCustomerInvoices(c.id)
       ])
       setCustomer(c); setProjects(ps); setInvoices(inv)
     } catch (err) {
@@ -51,9 +58,10 @@ export default function CustomerDetailPage() {
   }
 
   async function onDelete() {
+    if (!customer) return
     setBusy(true)
     try {
-      await deleteCustomer(id)
+      await deleteCustomer(customer.id)
       toast.success('Customer removed')
       navigate('/customers')
     } catch (err) {
@@ -146,7 +154,7 @@ export default function CustomerDetailPage() {
               </THead>
               <tbody>
                 {projects.map(p => (
-                  <TR key={p.id} hover onClick={() => navigate(`/projects/${p.id}`)}>
+                  <TR key={p.id} hover onClick={() => navigate(`/projects/${p.slug}`)}>
                     <TD className="font-medium text-zinc-100">{p.name}</TD>
                     <TD>{projectStatusBadge(p.status)}</TD>
                     <TD align="right">{formatLKR(p.budget)}</TD>
@@ -172,7 +180,7 @@ export default function CustomerDetailPage() {
               </THead>
               <tbody>
                 {invoices.map(i => (
-                  <TR key={i.id} hover onClick={() => navigate(`/invoices/${i.id}`)}>
+                  <TR key={i.id} hover onClick={() => navigate(`/invoices/${i.invoice_no}`)}>
                     <TD className="font-medium text-zinc-100 font-mono text-sm">{i.invoice_no}</TD>
                     <TD>{invoiceStatusBadge(i.status)}</TD>
                     <TD align="right">{formatLKR(i.total)}</TD>

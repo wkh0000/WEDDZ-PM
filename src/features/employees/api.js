@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { generateUniqueSlug } from '@/lib/slug'
 
 export const EMPLOYMENT_TYPES = [
   { value: 'full_time', label: 'Full-time' },
@@ -22,17 +23,33 @@ export async function getEmployee(id) {
   return data
 }
 
+/**
+ * Lookup by slug (e.g. 'kasun-wachindra'). Used by the employee
+ * detail page when reading the slug from the URL.
+ */
+export async function getEmployeeBySlug(slug) {
+  const { data, error } = await supabase.from('employees').select('*').eq('slug', slug).single()
+  if (error) throw error
+  return data
+}
+
 export async function createEmployee(payload) {
   const { data: { user } } = await supabase.auth.getUser()
+  const slug = await generateUniqueSlug('employees', payload.full_name)
   const { data, error } = await supabase
-    .from('employees').insert({ ...payload, created_by: user?.id }).select().single()
+    .from('employees').insert({ ...payload, slug, created_by: user?.id }).select().single()
   if (error) throw error
   return data
 }
 
 export async function updateEmployee(id, updates) {
+  let next = updates
+  if (typeof updates.full_name === 'string' && updates.full_name.trim()) {
+    const slug = await generateUniqueSlug('employees', updates.full_name, { excludeId: id })
+    next = { ...updates, slug }
+  }
   const { data, error } = await supabase
-    .from('employees').update(updates).eq('id', id).select().single()
+    .from('employees').update(next).eq('id', id).select().single()
   if (error) throw error
   return data
 }

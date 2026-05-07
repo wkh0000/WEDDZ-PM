@@ -96,7 +96,7 @@ export default function DashboardPage() {
             <div className="divide-y divide-white/5">
               {projects.map(p => (
                 <Link
-                  key={p.id} to={`/projects/${p.id}`}
+                  key={p.id} to={`/projects/${p.slug}`}
                   className="flex items-center justify-between px-5 py-3.5 hover:bg-white/[0.03] transition-colors"
                 >
                   <div className="min-w-0">
@@ -131,7 +131,7 @@ export default function DashboardPage() {
             <div className="divide-y divide-white/5">
               {invoices.map(i => (
                 <Link
-                  key={i.id} to={`/invoices/${i.id}`}
+                  key={i.id} to={`/invoices/${i.invoice_no}`}
                   className="flex items-center justify-between px-5 py-3 hover:bg-white/[0.03] transition-colors"
                 >
                   <div className="min-w-0">

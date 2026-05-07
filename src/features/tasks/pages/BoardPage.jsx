@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   DndContext, DragOverlay, PointerSensor, KeyboardSensor,
   useSensor, useSensors, closestCorners
@@ -14,7 +14,8 @@ import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import { useToast } from '@/context/ToastContext'
 import { useDisclosure } from '@/hooks/useDisclosure'
-import { getProject } from '@/features/projects/api'
+import { isUuid } from '@/lib/slug'
+import { getProject, getProjectBySlug } from '@/features/projects/api'
 import { listProfiles } from '@/features/admin/api'
 import {
   listColumns, listTasks, createTask, updateTask, moveTask,
@@ -32,7 +33,8 @@ const LABEL_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#
 const DENSITY_KEY = 'weddzpm.board.density'
 
 export default function BoardPage() {
-  const { id: projectId } = useParams()
+  const { slug } = useParams()
+  const navigate = useNavigate()
   const toast = useToast()
   const { user } = useAuth()
   const taskDrawer = useDisclosure()
@@ -53,6 +55,10 @@ export default function BoardPage() {
   const setDensity = (d) => { setDensityRaw(d); try { localStorage.setItem(DENSITY_KEY, d) } catch {} }
   const reloadingRef = useRef(false)
 
+  // The board's API surface still talks UUIDs — derive the UUID from
+  // the resolved project row.
+  const projectId = project?.id
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -62,11 +68,20 @@ export default function BoardPage() {
     if (reloadingRef.current) return
     reloadingRef.current = true
     try {
-      const [p, cs, ts, ls, ps] = await Promise.all([
-        getProject(projectId),
-        listColumns(projectId),
-        listTasks(projectId),
-        listLabels(projectId),
+      // 1) Resolve the project from the URL slug — with UUID fallback
+      //    that 301s to the canonical slug URL.
+      let p
+      if (isUuid(slug)) {
+        p = await getProject(slug)
+        if (p?.slug) navigate(`/projects/${p.slug}/board`, { replace: true })
+      } else {
+        p = await getProjectBySlug(slug)
+      }
+      // 2) Then fan out the rest using the UUID
+      const [cs, ts, ls, ps] = await Promise.all([
+        listColumns(p.id),
+        listTasks(p.id),
+        listLabels(p.id),
         listProfiles().catch(() => [])
       ])
       setProject(p); setColumns(cs); setTasks(ts); setLabels(ls); setProfiles(ps.filter(x => x.active))
@@ -76,7 +91,7 @@ export default function BoardPage() {
       reloadingRef.current = false
       setLoading(false)
     }
-  }, [projectId, toast])
+  }, [slug, navigate, toast])
 
   useEffect(() => { document.title = `${project?.name ?? 'Board'} · WEDDZ PM` }, [project])
   useEffect(() => { load() }, [load])
@@ -278,7 +293,7 @@ export default function BoardPage() {
           <>
             <Link to="/projects" className="hover:text-zinc-300 inline-flex items-center gap-1"><ArrowLeft className="w-3 h-3" />Projects</Link>
             <span>/</span>
-            <Link to={`/projects/${projectId}`} className="hover:text-zinc-300">{project?.name}</Link>
+            <Link to={`/projects/${project?.slug ?? slug}`} className="hover:text-zinc-300">{project?.name}</Link>
           </>
         }
         title="Board"

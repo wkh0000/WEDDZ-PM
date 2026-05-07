@@ -2,23 +2,26 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Printer, ArrowLeft } from 'lucide-react'
 import Spinner from '@/components/ui/Spinner'
-import { getInvoice, listInvoiceItems } from '../api'
+import { isUuid } from '@/lib/slug'
+import { getInvoice, getInvoiceByNumber, listInvoiceItems } from '../api'
 import { formatDate, formatLKR } from '@/lib/format'
 
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'WEDDZ PM'
 
 export default function InvoicePrintPage() {
-  const { id } = useParams()
+  const { invoiceNo } = useParams()
   const [invoice, setInvoice] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     document.title = 'Invoice · Print'
-    Promise.all([getInvoice(id), listInvoiceItems(id)])
-      .then(([inv, its]) => { setInvoice(inv); setItems(its) })
+    const lookup = isUuid(invoiceNo) ? getInvoice(invoiceNo) : getInvoiceByNumber(invoiceNo)
+    lookup
+      .then(inv => listInvoiceItems(inv.id).then(its => ({ inv, its })))
+      .then(({ inv, its }) => { setInvoice(inv); setItems(its) })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [invoiceNo])
 
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>
   if (!invoice) return <div className="p-10 text-center text-zinc-400">Invoice not found.</div>
@@ -28,7 +31,7 @@ export default function InvoicePrintPage() {
       <div className="max-w-3xl mx-auto">
         {/* Toolbar — hidden in print */}
         <div className="no-print flex items-center justify-between mb-6">
-          <Link to={`/invoices/${id}`} className="inline-flex items-center gap-1.5 text-sm text-zinc-700 hover:text-zinc-900">
+          <Link to={`/invoices/${invoice.invoice_no}`} className="inline-flex items-center gap-1.5 text-sm text-zinc-700 hover:text-zinc-900">
             <ArrowLeft className="w-4 h-4" /> Back to invoice
           </Link>
           <button
