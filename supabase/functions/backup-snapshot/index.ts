@@ -8,15 +8,15 @@
 //      on-demand pulls — the UI lets the user choose JSON, SQL, or both.
 //
 // Output formats:
+//   • SQL — `weddz-pm-backup-<ts>.sql` — INSERT statements wrapped in a
+//     transaction, ordered by FK dependencies. Restore is one psql
+//     command. **Default for emails — it's smaller AND more useful for
+//     recovery than JSON.**
 //   • JSON — `weddz-pm-backup-<ts>.json` — pretty-printed dump of every
 //     row, easy to diff and inspect manually.
-//   • SQL — `weddz-pm-backup-<ts>.sql` — INSERT statements wrapped in a
-//     transaction, ordered by FK dependencies. Restore by replaying into
-//     an empty schema (or use `SET session_replication_role = replica;`
-//     to defer FK checks if restoring into a populated DB).
 //
-// Body fields (download flow):
-//   • format: 'json' | 'sql' | 'both' — default 'both'
+// Body fields:
+//   • format: 'json' | 'sql' | 'both' — default 'sql' (emails) / per UI (downloads)
 //   • download_only: true — return content as base64 instead of emailing
 //   • email_to: override BACKUP_RECIPIENT for one-off sends
 //
@@ -118,12 +118,15 @@ serve(async (req) => {
   let triggeredBy: string
   let recipientOverride: string | null = null
   let downloadOnly = false
-  let format: Format = 'both'
+  // Default to SQL-only — smaller attachment AND directly restorable via
+  // `psql -f file.sql`. The /admin/backups UI overrides via body.format.
+  let format: Format = 'sql'
   const cronHeader = req.headers.get('x-cron-secret')
 
   if (cronHeader && cronSecret && cronHeader === cronSecret) {
     triggeredBy = 'pg_cron (scheduled)'
-    // Cron always emails both formats — easier to restore if anything goes wrong.
+    // Cron emails the SQL backup by default. JSON is available on demand
+    // from the Backups page if anyone wants the inspectable dump.
   } else {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'unauthorized' }, 401)

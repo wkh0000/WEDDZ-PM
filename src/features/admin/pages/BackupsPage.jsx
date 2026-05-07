@@ -39,9 +39,12 @@ export default function BackupsPage() {
   async function onEmail() {
     setBusyEmail(true)
     try {
-      const data = await triggerBackup({ mode: 'email', format: 'both', emailTo: recipient || undefined })
+      // Email default = SQL only. Smaller than JSON and one psql command
+      // away from a full restore. The download buttons below let you grab
+      // JSON if you want to inspect it.
+      const data = await triggerBackup({ mode: 'email', format: 'sql', emailTo: recipient || undefined })
       setLastResult(data)
-      toast.success(`Backup (JSON + SQL) emailed to ${data.sent_to}`)
+      toast.success(`SQL backup emailed to ${data.sent_to}`)
     } catch (e) {
       toast.error(e.message || 'Backup failed')
     } finally {
@@ -115,7 +118,7 @@ export default function BackupsPage() {
           </span>
           <div className="flex-1">
             <h3 className="text-base font-semibold text-zinc-100">Trigger a backup now</h3>
-            <p className="text-sm text-zinc-400">Email the snapshot (JSON + SQL attached) to the address below, or download a specific format.</p>
+            <p className="text-sm text-zinc-400">Email the SQL backup to the address below, or download a specific format.</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
               <div className="space-y-2">
