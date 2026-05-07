@@ -24,7 +24,7 @@ Bulk-loaded the team's real customers, projects, employees, salaries, invoices, 
 | Name | Title | Type | Base salary | Joined |
 |---|---|---|---|---|
 | Kasun Wachindra | Founder | Full-time | LKR 110,000 | 2025-01-01 |
-| Tharindu Induwara | Engineer | Full-time | LKR 110,000 | 2026-02-01 |
+| Tharindu Induwara | Founder | Full-time | LKR 110,000 | 2026-02-01 |
 
 ### Customers
 
