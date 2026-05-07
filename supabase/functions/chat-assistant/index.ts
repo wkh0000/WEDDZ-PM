@@ -28,8 +28,11 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
-// Groq (OpenAI-compatible) — free 30 RPM / 14,400 RPD on Llama 3.3 70B.
-const MODEL = 'llama-3.3-70b-versatile'
+// Groq (OpenAI-compatible). Llama 4 Scout is Groq's recommended tool-use
+// model — Llama 3.3 70B occasionally emits its native <function=name{...}>
+// syntax which Groq rejects with `tool_use_failed`. Llama 4 always emits
+// the OpenAI structured tool_calls format. ~14,400 RPD free tier.
+const MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
 const MAX_STEPS = 6
 
 // -------- TOOL TYPE -----------------------------------------------------------
@@ -1461,7 +1464,64 @@ class RateLimitError extends Error {
   constructor(retryAfterSec: number, msg: string) { super(msg); this.retryAfterSec = retryAfterSec }
 }
 
-async function callGroq(messages: any[], tools: Tool[], groqKey: string) {
+/**
+ * Llama models on Groq sometimes emit malformed tool calls — either their
+ * native syntax (Llama 3.x) or a JSON array of {name, parameters} objects
+ * (Llama 4). Groq rejects with `tool_use_failed` and includes the raw text
+ * in `failed_generation`. Parse here so the conversation can recover.
+ *
+ * We also strip null values from parsed args — Llama loves to send
+ * `{"category": null}` for optional fields, which violates strict OpenAI
+ * schemas and causes a separate validation error.
+ */
+function parseFailedGeneration(failedText: string): { name: string; arguments: string } | null {
+  // Shape 1: <function=NAME{...}</function>  or  <function=NAME>{...}</function>
+  const m1 = /<function=([\w.-]+)>?\s*(\{[\s\S]*?\})\s*<\/function>/i.exec(failedText)
+  if (m1) return { name: m1[1], arguments: cleanArgs(m1[2]) }
+
+  // Shape 2: <|python_tag|>NAME.call({...})
+  const m2 = /<\|python_tag\|>\s*([\w.-]+)\.call\((\{[\s\S]*?\})\)/i.exec(failedText)
+  if (m2) return { name: m2[1], arguments: cleanArgs(m2[2]) }
+
+  // Shape 3: JSON array — [{"name": "...", "parameters" or "arguments": {...}}]
+  // or single object — possibly with leading commentary text before the JSON.
+  // Locate the first `[` or `{` and parse from there.
+  const firstBracket = failedText.search(/[\[{]/)
+  if (firstBracket >= 0) {
+    const candidate = failedText.slice(firstBracket).trim()
+    // Try shrinking from the right to find a complete JSON parse
+    for (let end = candidate.length; end > 0; end--) {
+      try {
+        const parsed = JSON.parse(candidate.slice(0, end))
+        const first = Array.isArray(parsed) ? parsed[0] : parsed
+        if (first && typeof first === 'object' && first.name) {
+          const argObj = first.parameters ?? first.arguments ?? {}
+          return { name: first.name, arguments: cleanArgs(JSON.stringify(argObj)) }
+        }
+        break  // parsed but not a tool call
+      } catch { /* keep shrinking */ }
+    }
+  }
+
+  return null
+}
+
+/** Strip null/undefined values from a JSON args string */
+function cleanArgs(raw: string): string {
+  try {
+    const obj = JSON.parse(raw)
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      const cleaned: any = {}
+      for (const [k, v] of Object.entries(obj)) {
+        if (v !== null && v !== undefined) cleaned[k] = v
+      }
+      return JSON.stringify(cleaned)
+    }
+  } catch { /* fall through */ }
+  return raw
+}
+
+async function callGroq(messages: any[], tools: Tool[], groqKey: string): Promise<any> {
   const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -1491,6 +1551,32 @@ async function callGroq(messages: any[], tools: Tool[], groqKey: string) {
         if (m) retry = Math.ceil(parseFloat(m[1]))
       }
       throw new RateLimitError(retry, txt.slice(0, 200))
+    }
+    // Groq's tool_use_failed: try to parse the malformed function call so we
+    // can keep going. Synthesize a normal tool_calls response if we succeed.
+    if (resp.status === 400) {
+      try {
+        const errBody = JSON.parse(txt)
+        if (errBody?.error?.code === 'tool_use_failed' && errBody.error.failed_generation) {
+          const parsed = parseFailedGeneration(errBody.error.failed_generation)
+          if (parsed) {
+            return {
+              choices: [{
+                message: {
+                  role: 'assistant',
+                  content: null,
+                  tool_calls: [{
+                    id: `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,
+                    type: 'function',
+                    function: { name: parsed.name, arguments: parsed.arguments }
+                  }]
+                },
+                finish_reason: 'tool_calls'
+              }]
+            }
+          }
+        }
+      } catch { /* fall through */ }
     }
     throw new Error(`Groq ${resp.status}: ${txt.slice(0, 400)}`)
   }
