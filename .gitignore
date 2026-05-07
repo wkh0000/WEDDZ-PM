@@ -53,6 +53,7 @@ coverage/
 process/.credentials.local.md
 process/.seed-initial.mjs
 process/.verify-seed.mjs
+process/.seed-onscene-phases.mjs
 .supabase/
 
 # Supabase CLI local state (link, project ref) — re-created on `supabase link`
