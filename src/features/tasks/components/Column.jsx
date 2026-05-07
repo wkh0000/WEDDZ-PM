@@ -77,7 +77,9 @@ export default function Column({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'shrink-0 w-80 max-h-full flex flex-col rounded-2xl bg-white/[0.03] border border-white/10',
+        // Mobile: full-width column stacked vertically. md+: 320px
+        // fixed-width column for the classic kanban side-by-side layout.
+        'shrink-0 w-full md:w-80 max-h-full flex flex-col rounded-2xl bg-white/[0.03] border border-white/10',
         isDragging && 'opacity-40'
       )}
     >
@@ -119,11 +121,14 @@ export default function Column({
         )}
       </div>
 
-      {/* Tasks */}
+      {/* Tasks. On mobile we grow with content — nested scroll is
+          painful with a finger, so columns expand naturally and the
+          page is the only scroll surface. On md+ each column scrolls
+          internally so the kanban row stays at viewport height. */}
       <div
         ref={setDropRef}
         className={cn(
-          'flex-1 overflow-y-auto px-2 py-2 space-y-2 min-h-[120px] transition-colors',
+          'flex-1 md:overflow-y-auto px-2 py-2 space-y-2 min-h-[120px] transition-colors',
           isOver && 'bg-indigo-500/[0.05]'
         )}
       >

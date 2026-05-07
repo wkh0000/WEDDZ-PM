@@ -375,9 +375,13 @@ export default function BoardPage() {
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         >
-          <div className="overflow-x-auto pb-4">
+          {/* Mobile (< md): columns stack vertically — no horizontal
+              scroll trap, every column reachable by scrolling down.
+              md+ keeps the classic side-by-side kanban with horizontal
+              overflow scroll. */}
+          <div className="md:overflow-x-auto pb-4">
             <SortableContext items={columns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
-              <div className="flex items-start gap-4 min-h-[60vh]">
+              <div className="flex flex-col md:flex-row md:items-start gap-4 md:min-h-[60vh]">
                 {columns.map(col => (
                   <Column
                     key={col.id}
