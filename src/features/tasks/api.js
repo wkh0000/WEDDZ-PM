@@ -51,7 +51,7 @@ export async function listTasks(projectId) {
     .from('tasks')
     .select(`
       *,
-      assignee:profiles(id,full_name,avatar_url),
+      assignee:profiles!tasks_assignee_id_fkey(id,full_name,avatar_url),
       labels:task_label_assignments(label:task_labels(id,name,color)),
       comments:task_comments(id),
       checklist:task_checklist_items(id,done),
@@ -78,7 +78,7 @@ export async function listTasks(projectId) {
 export async function getTask(id) {
   const { data, error } = await supabase
     .from('tasks')
-    .select('*, assignee:profiles(id,full_name,avatar_url), labels:task_label_assignments(label:task_labels(id,name,color))')
+    .select('*, assignee:profiles!tasks_assignee_id_fkey(id,full_name,avatar_url), labels:task_label_assignments(label:task_labels(id,name,color))')
     .eq('id', id)
     .single()
   if (error) throw error
@@ -100,7 +100,7 @@ export async function createTask({ projectId, columnId, title, position, priorit
       position: position ?? 0,
       created_by: user?.id
     })
-    .select('*, assignee:profiles(id,full_name,avatar_url)')
+    .select('*, assignee:profiles!tasks_assignee_id_fkey(id,full_name,avatar_url)')
     .single()
   if (error) throw error
   await supabase.from('task_activity').insert({

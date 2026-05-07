@@ -4,14 +4,17 @@
 // Edge Function impersonates the user via their JWT — all RLS + role checks
 // continue to apply server-side, so a "member" can't accidentally elevate.
 //
+// Backed by Groq (OpenAI-compatible API) — Llama 3.3 70B Versatile,
+// free tier: 30 RPM / 14,400 RPD (vs Gemini free's 20 RPM / 250 RPD).
+//
 // Loop:
 //   1. Receive messages + optional confirmed_action
 //   2. If confirmed_action → execute it as a tool call, then continue with model
-//   3. Call Gemini with conversation + tool definitions
-//   4. If Gemini returns text → return as assistant message
-//   5. If Gemini returns function call:
+//   3. Call Groq with conversation + tool definitions
+//   4. If Groq returns text → return as assistant message
+//   5. If Groq returns tool_calls:
 //        - If tool is unsafe → return pending_action for UI confirmation
-//        - If tool is safe → execute, append result, loop back to Gemini
+//        - If tool is safe → execute, append result, loop back to Groq
 //   6. Cap at MAX_STEPS to prevent runaway
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
@@ -25,7 +28,8 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
-const MODEL = 'gemini-2.5-flash'
+// Groq (OpenAI-compatible) — free 30 RPM / 14,400 RPD on Llama 3.3 70B.
+const MODEL = 'llama-3.3-70b-versatile'
 const MAX_STEPS = 6
 
 // -------- TOOL TYPE -----------------------------------------------------------
@@ -242,7 +246,7 @@ const TOOLS: Tool[] = [
     handler: async ({ project_name }, { sb }) => {
       const projectId = await findProjectId(sb, project_name)
       const { data, error } = await sb
-        .from('tasks').select('id,title,priority,due_date,column_id,assignee:profiles(full_name)')
+        .from('tasks').select('id,title,priority,due_date,column_id,assignee:profiles!tasks_assignee_id_fkey(full_name)')
         .eq('project_id', projectId).order('position')
       if (error) throw error
       return data
@@ -1413,28 +1417,19 @@ Other lookups:
   }
 ]
 
-// -------- GEMINI CALL ---------------------------------------------------------
-function toGeminiTool(t: Tool) {
-  return { name: t.name, description: t.description, parameters: t.parameters }
+// -------- GROQ CALL -----------------------------------------------------------
+function toOpenAITool(t: Tool) {
+  return {
+    type: 'function',
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters
+    }
+  }
 }
 
-// Custom error type so the main handler can render a friendly message
-// for rate-limit responses instead of a 502 to the client.
-class RateLimitError extends Error {
-  retryAfterSec: number
-  constructor(retryAfterSec: number, msg: string) { super(msg); this.retryAfterSec = retryAfterSec }
-}
-
-async function callGemini(messages: any[], tools: Tool[], geminiKey: string) {
-  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: messages,
-      tools: [{ functionDeclarations: tools.map(toGeminiTool) }],
-      systemInstruction: {
-        role: 'system',
-        parts: [{ text:
+const SYSTEM_PROMPT =
 `You are the WEDDZ PM assistant. Help the user manage customers, projects, invoices, expenses, salaries, and the kanban board for the WEDDZ IT business.
 
 Vocabulary distinction (don't confuse — these are different tables):
@@ -1458,21 +1453,46 @@ Guidelines:
 - Be concise. After a tool call, summarize the result in one sentence.
 - Never invent IDs. Look things up by name with the list_* / get_* tools.
 - If a tool returns an error, surface it plainly and offer the next step.`
-        }]
-      },
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+
+// Custom error type so the main handler can render a friendly message
+// for rate-limit responses instead of a 502 to the client.
+class RateLimitError extends Error {
+  retryAfterSec: number
+  constructor(retryAfterSec: number, msg: string) { super(msg); this.retryAfterSec = retryAfterSec }
+}
+
+async function callGroq(messages: any[], tools: Tool[], groqKey: string) {
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${groqKey}`
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+      tools: tools.map(toOpenAITool),
+      tool_choice: 'auto',
+      temperature: 0.2,
+      max_tokens: 1024
     })
   })
   if (!resp.ok) {
     const txt = await resp.text()
     if (resp.status === 429) {
-      // Try to parse Gemini's "Please retry in Xs" hint
+      // Groq returns either a Retry-After header or "Please try again in Xs" / "X.YYs" in the body
       let retry = 30
-      const m = /Please retry in ([\d.]+)s/i.exec(txt)
-      if (m) retry = Math.ceil(parseFloat(m[1]))
+      const headerVal = resp.headers.get('retry-after')
+      if (headerVal) {
+        const n = parseFloat(headerVal)
+        if (!isNaN(n)) retry = Math.ceil(n)
+      } else {
+        const m = /try again in ([\d.]+)s/i.exec(txt) || /retry.*?([\d.]+)\s*s/i.exec(txt)
+        if (m) retry = Math.ceil(parseFloat(m[1]))
+      }
       throw new RateLimitError(retry, txt.slice(0, 200))
     }
-    throw new Error(`Gemini ${resp.status}: ${txt.slice(0, 400)}`)
+    throw new Error(`Groq ${resp.status}: ${txt.slice(0, 400)}`)
   }
   return resp.json()
 }
@@ -1485,8 +1505,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const anonKey     = Deno.env.get('SUPABASE_ANON_KEY')!
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const geminiKey   = Deno.env.get('GEMINI_API_KEY')
-  if (!geminiKey) return json({ error: 'GEMINI_API_KEY not set' }, 500)
+  const groqKey     = Deno.env.get('GROQ_API_KEY')
+  if (!groqKey) return json({ error: 'GROQ_API_KEY not set' }, 500)
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'unauthorized' }, 401)
@@ -1507,14 +1527,19 @@ serve(async (req) => {
 
   const ctx: ToolCtx = { user: { id: user.id, email: user.email! }, profile: profile as any, sb, admin }
 
-  // Build Gemini conversation
+  // Build OpenAI-format conversation. The system prompt is injected by callGroq.
   const conv: any[] = []
   for (const m of incoming) {
-    if (m.role === 'user') conv.push({ role: 'user', parts: [{ text: m.content }] })
-    else if (m.role === 'assistant' && m.content) conv.push({ role: 'model', parts: [{ text: m.content }] })
+    if (m.role === 'user') conv.push({ role: 'user', content: m.content })
+    else if (m.role === 'assistant' && m.content) conv.push({ role: 'assistant', content: m.content })
   }
 
   const actionsTaken: { tool: string; summary: string; result?: unknown }[] = []
+
+  // Helper: synthesize a tool_call_id since we're injecting tool turns ourselves
+  // (the model didn't emit them — we did, on behalf of the confirm flow or
+  // unknown-tool / forbidden-tool synthetic turns).
+  const synthCallId = () => `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
 
   // If the previous turn produced a pending_action and the user confirmed,
   // execute it BEFORE calling the model again so the model can see the result.
@@ -1522,17 +1547,32 @@ serve(async (req) => {
     const tool = TOOLS.find(t => t.name === confirmedAction.tool)
     if (!tool) return json({ error: `Unknown tool ${confirmedAction.tool}` }, 400)
     if (tool.superAdminOnly && profile.role !== 'super_admin') return json({ error: 'forbidden' }, 403)
+    const callId = synthCallId()
     try {
       const result = await tool.handler(confirmedAction.args, ctx)
       const summary = tool.summarize ? tool.summarize(confirmedAction.args, result) : `${tool.name} ok`
       actionsTaken.push({ tool: tool.name, summary, result })
-      // Append a synthetic model turn + function response so Gemini can finish the thought
-      conv.push({ role: 'model', parts: [{ functionCall: { name: tool.name, args: confirmedAction.args } }] })
-      conv.push({ role: 'user', parts: [{ functionResponse: { name: tool.name, response: { result } } }] })
+      // Append a synthetic assistant tool_call + tool result so the model can finish the thought
+      conv.push({
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: callId, type: 'function',
+          function: { name: tool.name, arguments: JSON.stringify(confirmedAction.args ?? {}) }
+        }]
+      })
+      conv.push({ role: 'tool', tool_call_id: callId, content: JSON.stringify({ result }) })
     } catch (e) {
       const msg = String((e as any)?.message ?? e)
-      conv.push({ role: 'model', parts: [{ functionCall: { name: confirmedAction.tool, args: confirmedAction.args } }] })
-      conv.push({ role: 'user', parts: [{ functionResponse: { name: confirmedAction.tool, response: { error: msg } } }] })
+      conv.push({
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: callId, type: 'function',
+          function: { name: confirmedAction.tool, arguments: JSON.stringify(confirmedAction.args ?? {}) }
+        }]
+      })
+      conv.push({ role: 'tool', tool_call_id: callId, content: JSON.stringify({ error: msg }) })
       actionsTaken.push({ tool: confirmedAction.tool, summary: `failed: ${msg}` })
     }
   }
@@ -1544,13 +1584,13 @@ serve(async (req) => {
   for (let step = 0; step < MAX_STEPS; step++) {
     let resp
     try {
-      resp = await callGemini(conv, availableTools, geminiKey)
+      resp = await callGroq(conv, availableTools, groqKey)
     } catch (e) {
       // Render rate-limit as a friendly assistant message (200) instead of 502 —
       // so the chat panel shows it inline like any other turn.
       if (e instanceof RateLimitError) {
         return json({
-          message: `Gemini's free tier is busy right now (rate limit hit). Please try again in about ${e.retryAfterSec} seconds.`,
+          message: `The AI service is busy right now (rate limit hit). Please try again in about ${e.retryAfterSec} seconds.`,
           actions_taken: actionsTaken,
           error_kind: 'rate_limit',
           retry_after_sec: e.retryAfterSec
@@ -1558,49 +1598,73 @@ serve(async (req) => {
       }
       return json({ error: String((e as any)?.message ?? e) }, 502)
     }
-    const cand = resp?.candidates?.[0]
-    const part = cand?.content?.parts?.[0]
-    if (!part) return json({ message: 'I got an empty response from the model.', actions_taken: actionsTaken })
+    const choice = resp?.choices?.[0]
+    const msg = choice?.message
+    if (!msg) return json({ message: 'I got an empty response from the model.', actions_taken: actionsTaken })
 
-    if (part.functionCall) {
-      const { name, args } = part.functionCall
-      const tool = TOOLS.find(t => t.name === name)
-      if (!tool) {
-        conv.push({ role: 'model', parts: [{ functionCall: { name, args } }] })
-        conv.push({ role: 'user', parts: [{ functionResponse: { name, response: { error: 'unknown tool' } } }] })
-        continue
+    const toolCalls = msg.tool_calls as Array<{ id: string; type: string; function: { name: string; arguments: string } }> | undefined
+
+    if (toolCalls && toolCalls.length > 0) {
+      // First, append the assistant's tool_calls turn verbatim (required by OpenAI spec)
+      conv.push({
+        role: 'assistant',
+        content: msg.content ?? null,
+        tool_calls: toolCalls
+      })
+
+      // Then handle each call. If any call is unsafe, halt and return pending_action.
+      // Process all calls before deciding (so we don't half-execute a batch).
+      let pendingAction: { tool: string; args: any; summary: string; call_id: string } | null = null
+
+      for (const tc of toolCalls) {
+        const name = tc.function.name
+        let args: any = {}
+        try { args = tc.function.arguments ? JSON.parse(tc.function.arguments) : {} } catch { args = {} }
+        const tool = TOOLS.find(t => t.name === name)
+
+        if (!tool) {
+          conv.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: 'unknown tool' }) })
+          continue
+        }
+        if (tool.superAdminOnly && profile.role !== 'super_admin') {
+          conv.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: 'super_admin only' }) })
+          continue
+        }
+        if (tool.unsafe) {
+          // Capture the first unsafe call as the pending action
+          if (!pendingAction) {
+            const summary = tool.summarize ? tool.summarize(args) : `Run ${name}`
+            pendingAction = { tool: name, args, summary, call_id: tc.id }
+          }
+          // Stub the tool result so the conversation stays valid (the user will
+          // re-trigger via confirmed_action which builds a fresh turn).
+          conv.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ pending_confirmation: true }) })
+          continue
+        }
+        try {
+          const result = await tool.handler(args ?? {}, ctx)
+          const summary = tool.summarize ? tool.summarize(args, result) : `${name} ok`
+          actionsTaken.push({ tool: name, summary, result })
+          conv.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ result }) })
+        } catch (e) {
+          const errMsg = String((e as any)?.message ?? e)
+          actionsTaken.push({ tool: name, summary: `failed: ${errMsg}` })
+          conv.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: errMsg }) })
+        }
       }
-      if (tool.superAdminOnly && profile.role !== 'super_admin') {
-        conv.push({ role: 'model', parts: [{ functionCall: { name, args } }] })
-        conv.push({ role: 'user', parts: [{ functionResponse: { name, response: { error: 'super_admin only' } } }] })
-        continue
-      }
-      if (tool.unsafe) {
-        // Halt here — UI will confirm
-        const summary = tool.summarize ? tool.summarize(args) : `Run ${name}`
+
+      if (pendingAction) {
         return json({
-          message: `I'd like to ${summary}. Confirm to proceed.`,
+          message: `I'd like to ${pendingAction.summary}. Confirm to proceed.`,
           actions_taken: actionsTaken,
-          pending_action: { tool: name, args, summary }
+          pending_action: { tool: pendingAction.tool, args: pendingAction.args, summary: pendingAction.summary }
         })
-      }
-      try {
-        const result = await tool.handler(args ?? {}, ctx)
-        const summary = tool.summarize ? tool.summarize(args, result) : `${name} ok`
-        actionsTaken.push({ tool: name, summary, result })
-        conv.push({ role: 'model', parts: [{ functionCall: { name, args } }] })
-        conv.push({ role: 'user', parts: [{ functionResponse: { name, response: { result } } }] })
-      } catch (e) {
-        const msg = String((e as any)?.message ?? e)
-        actionsTaken.push({ tool: name, summary: `failed: ${msg}` })
-        conv.push({ role: 'model', parts: [{ functionCall: { name, args } }] })
-        conv.push({ role: 'user', parts: [{ functionResponse: { name, response: { error: msg } } }] })
       }
       continue
     }
 
     // Plain text response
-    return json({ message: part.text ?? '', actions_taken: actionsTaken })
+    return json({ message: msg.content ?? '', actions_taken: actionsTaken })
   }
 
   return json({ message: 'Hit step limit. Try a more specific request.', actions_taken: actionsTaken })
