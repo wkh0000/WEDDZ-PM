@@ -14,7 +14,6 @@ export async function createTeamMember({ email, full_name, password, role }) {
     body: { email, full_name, password, role }
   })
   if (error) {
-    // supabase-js wraps non-2xx responses; surface JSON body if any
     const body = error.context?.body
     if (body && typeof body === 'object' && body.error) throw new Error(body.error)
     throw error
@@ -57,4 +56,19 @@ export function generateTempPassword(length = 12) {
   const rest = Array.from({ length: length - required.length },
     () => all[Math.floor(Math.random() * all.length)])
   return [...required, ...rest].sort(() => Math.random() - 0.5).join('')
+}
+
+/** Trigger backup-snapshot Edge Function. mode: 'email' or 'download'. */
+export async function triggerBackup({ mode = 'email', emailTo } = {}) {
+  const body = {}
+  if (mode === 'download') body.download_only = true
+  if (emailTo) body.email_to = emailTo
+  const { data, error } = await supabase.functions.invoke('backup-snapshot', { body })
+  if (error) {
+    const b = error.context?.body
+    if (b && typeof b === 'object' && b.error) throw new Error(b.error)
+    throw error
+  }
+  if (data?.error) throw new Error(data.error)
+  return data
 }

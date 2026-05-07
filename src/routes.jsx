@@ -11,6 +11,7 @@ import SignupPage from '@/features/auth/pages/SignupPage'
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
 import AccountPage from '@/features/auth/pages/AccountPage'
 import UsersListPage from '@/features/admin/pages/UsersListPage'
+import BackupsPage from '@/features/admin/pages/BackupsPage'
 import CustomersListPage from '@/features/customers/pages/CustomersListPage'
 import CustomerDetailPage from '@/features/customers/pages/CustomerDetailPage'
 import ProjectsListPage from '@/features/projects/pages/ProjectsListPage'
@@ -60,7 +61,8 @@ export default function AppRoutes() {
 
         <Route path="/insights" element={<Suspense fallback={<PageLoader />}><InsightsPage /></Suspense>} />
 
-        <Route path="/admin/users" element={<RoleGate><UsersListPage /></RoleGate>} />
+        <Route path="/admin/users"   element={<RoleGate><UsersListPage /></RoleGate>} />
+        <Route path="/admin/backups" element={<RoleGate><BackupsPage /></RoleGate>} />
         <Route path="/account"     element={<AccountPage />} />
       </Route>
 

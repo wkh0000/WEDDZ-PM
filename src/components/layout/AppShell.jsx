@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
+import ChatLauncher from '@/features/assistant/components/ChatLauncher'
 
 export default function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -61,6 +62,9 @@ export default function AppShell() {
             </div>
           </main>
         </div>
+
+        {/* AI Assistant launcher (visible on every authed page) */}
+        <ChatLauncher />
       </div>
     </div>
   )
