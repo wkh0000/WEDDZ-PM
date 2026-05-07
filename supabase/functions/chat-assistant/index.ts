@@ -83,6 +83,51 @@ async function findProfileByEmail(sb: SupabaseClient, email: string) {
   return data
 }
 
+const FILLER_TOKENS = new Set(['team','member','user','account','the','a','an','login','people','staff'])
+
+/**
+ * Find a team member (profile) by email, full_name, or fuzzy tokens.
+ * Handles prompts like "test team member" → falls back to ["test"] and
+ * matches "Test Member" via ILIKE on full_name.
+ */
+async function findTeamMember(sb: SupabaseClient, query: string) {
+  // 1. Exact email
+  const { data: byEmail } = await sb.from('profiles')
+    .select('id, full_name, email').eq('email', query).maybeSingle()
+  if (byEmail) return byEmail
+
+  // 2. Exact full_name (case-insensitive)
+  const { data: byName } = await sb.from('profiles')
+    .select('id, full_name, email').ilike('full_name', query).maybeSingle()
+  if (byName) return byName
+
+  // 3. Tokenize. Strip filler words; need ≥1 real token of ≥3 chars.
+  const tokens = query.toLowerCase()
+    .split(/[\s.,()]+/).filter(w => w.length >= 3 && !FILLER_TOKENS.has(w))
+  if (tokens.length === 0) throw new Error(`Couldn't extract a name from "${query}"`)
+
+  const orClause = tokens
+    .flatMap(t => [`full_name.ilike.%${t}%`, `email.ilike.%${t}%`])
+    .join(',')
+  const { data: matches } = await sb.from('profiles')
+    .select('id, full_name, email').or(orClause).limit(8)
+  if (!matches?.length) throw new Error(`No team member matching "${query}"`)
+
+  // Score by number of token hits across name + email
+  const scored = matches.map((m: any) => ({
+    ...m,
+    score: tokens.reduce((s, t) => s
+      + ((m.full_name?.toLowerCase().includes(t) ? 1 : 0)
+       + (m.email?.toLowerCase().includes(t)     ? 1 : 0)), 0)
+  })).sort((a: any, b: any) => b.score - a.score)
+
+  if (scored.length === 1 || scored[0].score > scored[1].score) return scored[0]
+  throw new Error(`Multiple team members match "${query}": ${
+    scored.filter((s: any) => s.score === scored[0].score)
+      .map((m: any) => `${m.full_name} (${m.email})`).join(', ')
+  }`)
+}
+
 // -------- TOOL DEFINITIONS ----------------------------------------------------
 const TOOLS: Tool[] = [
   // ---------- READ ----------
@@ -473,18 +518,64 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'delete_record',
-    description: 'Delete one record from a table. entity is one of: customer, project, task, invoice, expense, employee.',
+    description:
+`Delete one record. Provide EITHER \`id\` (UUID) OR \`name\` — the lookup is automatic.
+
+Important entity distinction:
+  • team_member  = a login user (profiles row).  Lookup by email or full name.
+  • employee     = an HR record (employees row). Different table.
+  • A person can be one, both, or neither.
+
+For task: name = task title. For invoice: name = invoice_no like "INV-0001".
+For expense: name = description (substring match).`,
     parameters: {
       type: 'object',
       properties: {
-        entity: { type: 'string', enum: ['customer','project','task','invoice','expense','employee'] },
-        id: { type: 'string', description: 'UUID' }
+        entity: {
+          type: 'string',
+          enum: ['customer','project','task','invoice','expense','employee','team_member']
+        },
+        id:   { type: 'string', description: 'UUID. Provide id OR name.' },
+        name: { type: 'string', description: 'Human-friendly identifier — looked up automatically.' }
       },
-      required: ['entity', 'id']
+      required: ['entity']
     },
     unsafe: true,
-    summarize: (args) => `delete ${args.entity} ${args.id?.slice(0, 8)}…`,
-    handler: async ({ entity, id }, { sb }) => {
+    summarize: (args) => `delete ${args.entity} "${args.name ?? (args.id ? args.id.slice(0,8)+'…' : '?')}"`,
+    handler: async ({ entity, id, name }, { sb, admin, profile }) => {
+      // Resolve name -> id
+      if (!id && name) {
+        if (entity === 'customer')      id = await findCustomerId(sb, name)
+        else if (entity === 'project')  id = await findProjectId(sb, name)
+        else if (entity === 'employee') id = await findEmployeeId(sb, name)
+        else if (entity === 'invoice')  { const inv = await findInvoiceByNo(sb, name); id = inv.id }
+        else if (entity === 'task') {
+          const { data } = await sb.from('tasks').select('id, title').ilike('title', `%${name}%`).limit(2)
+          if (!data?.length)   throw new Error(`No task matching "${name}"`)
+          if (data.length > 1) throw new Error(`Multiple tasks match "${name}": ${data.map((t: any) => t.title).join(', ')}`)
+          id = data[0].id
+        }
+        else if (entity === 'expense') {
+          const { data } = await sb.from('expenses').select('id, description').ilike('description', `%${name}%`).limit(2)
+          if (!data?.length)   throw new Error(`No expense matching "${name}"`)
+          if (data.length > 1) throw new Error(`Multiple expenses match "${name}": ${data.map((e: any) => e.description).join(', ')}`)
+          id = data[0].id
+        }
+        else if (entity === 'team_member') {
+          const hit = await findTeamMember(sb, name)
+          id = hit.id
+        }
+      }
+      if (!id) throw new Error('Either id or name is required')
+
+      if (entity === 'team_member') {
+        if (profile.role !== 'super_admin') throw new Error('Only super_admin can remove team members')
+        // Delete the auth user; the profile row cascades via the FK on auth.users.
+        const { error } = await admin.auth.admin.deleteUser(id)
+        if (error) throw error
+        return { deleted: true, entity: 'team_member', id }
+      }
+
       const table = ({
         customer: 'customers', project: 'projects', task: 'tasks',
         invoice: 'invoices', expense: 'expenses', employee: 'employees'
@@ -493,6 +584,26 @@ const TOOLS: Tool[] = [
       const { error } = await sb.from(table).delete().eq('id', id)
       if (error) throw error
       return { deleted: true, entity, id }
+    }
+  },
+  {
+    name: 'set_team_member_active',
+    description: 'Soft-disable or re-enable a team member by email — keeps their data and history but they can no longer use admin powers. Super-admin only. Prefer this over delete_record for reversible deactivation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        email:  { type: 'string' },
+        active: { type: 'boolean' }
+      },
+      required: ['email', 'active']
+    },
+    unsafe: true, superAdminOnly: true,
+    summarize: (args) => `${args.active ? 're-enable' : 'deactivate'} ${args.email}`,
+    handler: async (args, { sb }) => {
+      const p = await findProfileByEmail(sb, args.email)
+      const { data, error } = await sb.from('profiles').update({ active: args.active }).eq('id', p.id).select().single()
+      if (error) throw error
+      return data
     }
   }
 ]
@@ -514,9 +625,15 @@ async function callGemini(messages: any[], tools: Tool[], geminiKey: string) {
         parts: [{ text:
 `You are the WEDDZ PM assistant. Help the user manage customers, projects, invoices, expenses, salaries, and the kanban board for the WEDDZ IT business.
 
+Vocabulary distinction (don't confuse these — they are different tables):
+- TEAM MEMBER = a login user (profiles row). Has a role (super_admin or member). When the user says "team member", "user", or refers to someone on the /admin/users page, they mean this.
+- EMPLOYEE   = an HR record (employees row) with salary info. Used for payroll. A team member may or may not also be an employee.
+
 Guidelines:
 - All currency is LKR (Sri Lankan Rupees).
-- When the user asks for an action, call the matching tool. If you need a name or ID, ask first.
+- When the user asks for an action, **call the tool first** — every name-accepting tool does fuzzy lookup. Only ask for clarification if the tool returns "no match" or "multiple matches".
+- The user often refers to records descriptively ("the test member", "the LMS project", "the tea expense"). Pass those words straight into the tool's \`name\` argument — the lookup will resolve them. Don't ask the user to type a UUID; UUIDs are for code, not humans.
+- For deletes: \`delete_record({ entity, name })\` is almost always what you want. Only fall back to asking for an ID if the tool reports ambiguity.
 - Multiple tools are OK in one turn; chain them when sensible (look up first, act second).
 - For risky actions (mark paid, change role, delete, pay salary, change project status) the platform will pause for user confirmation — call them anyway; the framework handles the prompt.
 - Be concise. After a tool call, summarize the result in one sentence.
