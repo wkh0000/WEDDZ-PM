@@ -195,6 +195,42 @@ function compactUpdates<T extends Record<string, any>>(updates: T): Partial<T> {
   return out
 }
 
+// -------- SLUG HELPERS --------------------------------------------------------
+// Mirror of src/lib/slug.js for the edge function. The customers/projects/
+// employees tables have a NOT NULL UNIQUE `slug` column added in migration
+// 007. The frontend's createXxx() functions handle this client-side, but
+// chat-assistant tools insert directly via service role, so they need their
+// own generator.
+function slugifyText(input: string | null | undefined): string {
+  if (!input) return 'item'
+  const stripped = String(input).trim().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const slug = stripped.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+  return slug || 'item'
+}
+
+/**
+ * Pick the first available slug — `base`, `base-2`, ... — within `table`.
+ * Pass `excludeId` for UPDATE flows so the row's own current slug doesn't
+ * count as a collision.
+ */
+async function uniqueSlug(sb: SupabaseClient, table: string, name: string, excludeId?: string): Promise<string> {
+  const base = slugifyText(name)
+  let q = sb.from(table).select('slug').like('slug', `${base}%`)
+  if (excludeId) q = q.neq('id', excludeId)
+  const { data, error } = await q
+  if (error) throw error
+  const taken = new Set((data ?? []).map((r: any) => r.slug))
+  if (!taken.has(base)) return base
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${base}-${n}`
+    if (!taken.has(candidate)) return candidate
+  }
+  throw new Error(`Could not allocate slug from base "${base}"`)
+}
+
 // -------- TOOL DEFINITIONS ----------------------------------------------------
 const TOOLS: Tool[] = [
   // ---------- READ ----------
@@ -370,7 +406,8 @@ const TOOLS: Tool[] = [
     },
     summarize: (args) => `Added customer "${args.name}"`,
     handler: async (args, { sb, user }) => {
-      const { data, error } = await sb.from('customers').insert({ ...args, created_by: user.id }).select().single()
+      const slug = await uniqueSlug(sb, 'customers', args.name)
+      const { data, error } = await sb.from('customers').insert({ ...args, slug, created_by: user.id }).select().single()
       if (error) throw error
       return data
     }
@@ -394,8 +431,9 @@ const TOOLS: Tool[] = [
     summarize: (args) => `Created project "${args.name}"`,
     handler: async (args, { sb, user }) => {
       const customer_id = args.customer_name ? await findCustomerId(sb, args.customer_name) : null
+      const slug = await uniqueSlug(sb, 'projects', args.name)
       const { data: project, error } = await sb.from('projects').insert({
-        name: args.name, customer_id,
+        name: args.name, slug, customer_id,
         status: args.status ?? 'planning',
         budget: args.budget ?? 0,
         start_date: args.start_date ?? null,
@@ -756,8 +794,10 @@ const TOOLS: Tool[] = [
     superAdminOnly: true,
     summarize: (args) => `Added employee "${args.full_name}"`,
     handler: async (args, { sb, user }) => {
+      const slug = await uniqueSlug(sb, 'employees', args.full_name)
       const { data, error } = await sb.from('employees').insert({
         full_name: args.full_name,
+        slug,
         email: args.email ?? null,
         phone: args.phone ?? null,
         role: args.role ?? null,
@@ -993,8 +1033,12 @@ const TOOLS: Tool[] = [
     handler: async ({ match, id, ...rest }, { sb }) => {
       if (!id && !match) throw new Error('Provide id or match')
       if (!id) id = await findCustomerId(sb, match!)
-      const updates = compactUpdates(rest)
+      const updates: any = compactUpdates(rest)
       if (Object.keys(updates).length === 0) throw new Error('Nothing to update — supply at least one field')
+      // Regenerate slug if the name changed
+      if (typeof updates.name === 'string' && updates.name.trim()) {
+        updates.slug = await uniqueSlug(sb, 'customers', updates.name, id)
+      }
       const { data, error } = await sb.from('customers').update(updates).eq('id', id).select().single()
       if (error) throw error
       return data
@@ -1025,6 +1069,10 @@ const TOOLS: Tool[] = [
       const updates: any = compactUpdates(rest)
       if (customer_name) updates.customer_id = await findCustomerId(sb, customer_name)
       if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      // Regenerate slug if the project name changed
+      if (typeof updates.name === 'string' && updates.name.trim()) {
+        updates.slug = await uniqueSlug(sb, 'projects', updates.name, id)
+      }
       const { data, error } = await sb.from('projects').update(updates).eq('id', id).select().single()
       if (error) throw error
       return data
@@ -1197,8 +1245,12 @@ const TOOLS: Tool[] = [
     handler: async ({ match, id, ...rest }, { sb }) => {
       if (!id && !match) throw new Error('Provide id or match')
       if (!id) id = await findEmployeeId(sb, match!)
-      const updates = compactUpdates(rest)
+      const updates: any = compactUpdates(rest)
       if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      // Regenerate slug if the employee's full_name changed
+      if (typeof updates.full_name === 'string' && updates.full_name.trim()) {
+        updates.slug = await uniqueSlug(sb, 'employees', updates.full_name, id)
+      }
       const { data, error } = await sb.from('employees').update(updates).eq('id', id).select().single()
       if (error) throw error
       return data
@@ -1483,7 +1535,11 @@ function toOpenAITool(t: Tool) {
   }
 }
 
-const SYSTEM_PROMPT =
+// The bulk of the prompt — kept byte-stable so OpenAI's auto prompt-cache
+// can match across calls. Date is injected separately in callOpenAI() at the
+// END so it only invalidates the small tail and the cache still covers ~99%
+// of the prefix.
+const SYSTEM_PROMPT_BASE =
 `You are the WEDDZ PM assistant. Help the user manage customers, projects, invoices, expenses, salaries, and the kanban board for the WEDDZ IT business.
 
 Vocabulary distinction (don't confuse — these are different tables):
@@ -1504,7 +1560,16 @@ Guidelines:
 - After an action, summarize the result in one sentence with the key numbers/names.
 - For risky actions, just call the tool — the framework handles the confirm prompt.
 - Never invent IDs. Look things up by name.
+- For relative dates ("today", "yesterday", "this month") use the current date pinned at the end of this prompt. Format ISO YYYY-MM-DD when filling tool args.
 - If a tool returns an error, surface it plainly and suggest the next step.`
+
+// Today in Asia/Colombo — built per-request so "today" tools resolve correctly.
+function buildSystemPrompt(): string {
+  const now = new Date()
+  // en-CA gives ISO YYYY-MM-DD format directly
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo' }).format(now)
+  return `${SYSTEM_PROMPT_BASE}\n\nCurrent date (Asia/Colombo): ${today}`
+}
 
 // Custom error type so the main handler can render a friendly message
 // for rate-limit responses instead of a 502 to the client.
@@ -1525,7 +1590,7 @@ async function callOpenAI(messages: any[], tools: Tool[], openaiKey: string): Pr
     },
     body: JSON.stringify({
       model: MODEL,
-      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+      messages: [{ role: 'system', content: buildSystemPrompt() }, ...messages],
       tools: tools.map(toOpenAITool),
       tool_choice: 'auto',
       parallel_tool_calls: false,
