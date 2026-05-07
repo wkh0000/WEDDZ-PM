@@ -49,12 +49,30 @@ export async function reorderColumns(orderedIds) {
 export async function listTasks(projectId) {
   const { data, error } = await supabase
     .from('tasks')
-    .select('*, assignee:profiles(id,full_name,avatar_url), labels:task_label_assignments(label:task_labels(id,name,color))')
+    .select(`
+      *,
+      assignee:profiles(id,full_name,avatar_url),
+      labels:task_label_assignments(label:task_labels(id,name,color)),
+      comments:task_comments(id),
+      checklist:task_checklist_items(id,done),
+      attachments:task_attachments(id)
+    `)
     .eq('project_id', projectId)
     .order('position', { ascending: true })
   if (error) throw error
-  // flatten labels
-  return data.map(t => ({ ...t, labels: (t.labels ?? []).map(la => la.label).filter(Boolean) }))
+  return (data ?? []).map(t => {
+    const checklist = t.checklist ?? []
+    return {
+      ...t,
+      labels: (t.labels ?? []).map(la => la.label).filter(Boolean),
+      comment_count: (t.comments ?? []).length,
+      checklist_total: checklist.length,
+      checklist_done: checklist.filter(c => c.done).length,
+      attachment_count: (t.attachments ?? []).length,
+      // strip the raw arrays — we only kept them for counting
+      comments: undefined, checklist: undefined, attachments: undefined
+    }
+  })
 }
 
 export async function getTask(id) {
@@ -67,7 +85,7 @@ export async function getTask(id) {
   return { ...data, labels: (data.labels ?? []).map(la => la.label).filter(Boolean) }
 }
 
-export async function createTask({ projectId, columnId, title, position }) {
+export async function createTask({ projectId, columnId, title, position, priority, due_date, assignee_id, description }) {
   const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
     .from('tasks')
@@ -75,13 +93,16 @@ export async function createTask({ projectId, columnId, title, position }) {
       project_id: projectId,
       column_id: columnId,
       title,
+      description: description ?? null,
+      priority: priority ?? 'medium',
+      due_date: due_date || null,
+      assignee_id: assignee_id || null,
       position: position ?? 0,
       created_by: user?.id
     })
-    .select()
+    .select('*, assignee:profiles(id,full_name,avatar_url)')
     .single()
   if (error) throw error
-  // log activity
   await supabase.from('task_activity').insert({
     task_id: data.id, actor_id: user?.id, kind: 'created', payload: { title }
   })

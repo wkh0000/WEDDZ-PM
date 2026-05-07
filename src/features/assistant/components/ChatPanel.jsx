@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import MessageBubble from './MessageBubble'
 import PendingActionCard from './PendingActionCard'
+import VoiceInputButton from './VoiceInputButton'
 import { sendChat } from '../api'
 
 const STORAGE_KEY = 'weddzpm.chat.history.v1'
@@ -170,11 +171,21 @@ export default function ChatPanel({ open, onClose }) {
 
             {/* Composer */}
             <form onSubmit={onSubmit} className="shrink-0 border-t border-white/10 p-3 flex items-end gap-2">
+              <VoiceInputButton
+                disabled={sending}
+                onTranscript={(text) => {
+                  setInput(prev => (prev.trim() ? prev.replace(/\s+$/, '') + ' ' : '') + text)
+                }}
+                onError={(e) => {
+                  if (e === 'no-speech' || e === 'aborted') return
+                  toast.error(`Voice input: ${e}`)
+                }}
+              />
               <textarea
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) onSubmit(e) }}
-                placeholder="Ask anything…"
+                placeholder="Ask anything… or tap the mic"
                 rows={1}
                 className="flex-1 resize-none bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-indigo-400/60 max-h-32"
               />
