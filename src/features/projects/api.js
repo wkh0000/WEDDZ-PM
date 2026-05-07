@@ -69,7 +69,7 @@ export async function deleteProject(id) {
 export async function listProjectUpdates(projectId) {
   const { data, error } = await supabase
     .from('project_updates')
-    .select('id, body, created_at, created_by, author:profiles!project_updates_created_by_fkey(id,full_name,avatar_url)')
+    .select('id, body, created_at, created_by, author:profiles!project_updates_created_by_profile_fkey(id,full_name,avatar_url)')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
   if (error) throw error

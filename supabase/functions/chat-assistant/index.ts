@@ -1418,6 +1418,13 @@ function toGeminiTool(t: Tool) {
   return { name: t.name, description: t.description, parameters: t.parameters }
 }
 
+// Custom error type so the main handler can render a friendly message
+// for rate-limit responses instead of a 502 to the client.
+class RateLimitError extends Error {
+  retryAfterSec: number
+  constructor(retryAfterSec: number, msg: string) { super(msg); this.retryAfterSec = retryAfterSec }
+}
+
 async function callGemini(messages: any[], tools: Tool[], geminiKey: string) {
   const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${geminiKey}`, {
     method: 'POST',
@@ -1458,6 +1465,13 @@ Guidelines:
   })
   if (!resp.ok) {
     const txt = await resp.text()
+    if (resp.status === 429) {
+      // Try to parse Gemini's "Please retry in Xs" hint
+      let retry = 30
+      const m = /Please retry in ([\d.]+)s/i.exec(txt)
+      if (m) retry = Math.ceil(parseFloat(m[1]))
+      throw new RateLimitError(retry, txt.slice(0, 200))
+    }
     throw new Error(`Gemini ${resp.status}: ${txt.slice(0, 400)}`)
   }
   return resp.json()
@@ -1532,6 +1546,16 @@ serve(async (req) => {
     try {
       resp = await callGemini(conv, availableTools, geminiKey)
     } catch (e) {
+      // Render rate-limit as a friendly assistant message (200) instead of 502 —
+      // so the chat panel shows it inline like any other turn.
+      if (e instanceof RateLimitError) {
+        return json({
+          message: `Gemini's free tier is busy right now (rate limit hit). Please try again in about ${e.retryAfterSec} seconds.`,
+          actions_taken: actionsTaken,
+          error_kind: 'rate_limit',
+          retry_after_sec: e.retryAfterSec
+        })
+      }
       return json({ error: String((e as any)?.message ?? e) }, 502)
     }
     const cand = resp?.candidates?.[0]
