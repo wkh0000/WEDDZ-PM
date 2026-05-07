@@ -16,7 +16,7 @@ Bulk-loaded the team's real customers, projects, employees, salaries, invoices, 
 | Email | Role | Notes |
 |---|---|---|
 | wkh0000@gmail.com | super_admin | founder (Kasun Wachindra) — linked to "Kasun Wachindra" employee record |
-| tharinduinduwara44@gmail.com | member | new — linked to "Tharindu Induwara" employee record. Temp password recorded in `process/.credentials.local.md` |
+| tharinduinduwara44@gmail.com | **super_admin** | new — linked to "Tharindu Induwara" employee record. Temp password recorded in `process/.credentials.local.md`. Promoted from `member` → `super_admin` on 2026-05-07. |
 | test+member@weddz.lk | member | leftover from QA. Can be deactivated via `/admin/users` if you want a clean roster. |
 
 ### Employees (HR)
