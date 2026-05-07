@@ -275,9 +275,51 @@ export async function createDocument({ projectId, kind, title, description, doc_
   return data
 }
 
+/**
+ * Update a document. If `updates.file` is a File object, the old file (if any)
+ * is removed from storage and the new one uploaded; storage_path / file_name /
+ * mime_type / size_bytes are then patched to match. Pass `updates.file = null`
+ * to detach the existing file without uploading a replacement.
+ */
 export async function updateDocument(id, updates) {
+  const { file, ...rest } = updates
+  let patch = { ...rest }
+
+  if (file !== undefined) {
+    // Need the existing storage_path so we can clean up the old file
+    const { data: existing, error: getErr } = await supabase
+      .from('project_documents').select('project_id, storage_path').eq('id', id).single()
+    if (getErr) throw getErr
+
+    if (file instanceof File) {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const newPath = `projects/${existing.project_id}/${Date.now()}-${safe}`
+      const { error: upErr } = await supabase.storage
+        .from('project-documents')
+        .upload(newPath, file, { contentType: file.type, upsert: false })
+      if (upErr) throw upErr
+      // Remove the old file (best-effort — don't fail the update if cleanup fails)
+      if (existing.storage_path) {
+        await supabase.storage.from('project-documents').remove([existing.storage_path]).catch(() => {})
+      }
+      patch.storage_path = newPath
+      patch.file_name = file.name
+      patch.mime_type = file.type
+      patch.size_bytes = file.size
+    } else if (file === null) {
+      // Detach: remove old file, clear path/metadata
+      if (existing.storage_path) {
+        await supabase.storage.from('project-documents').remove([existing.storage_path]).catch(() => {})
+      }
+      patch.storage_path = null
+      patch.file_name = null
+      patch.mime_type = null
+      patch.size_bytes = null
+    }
+  }
+
   const { data, error } = await supabase
-    .from('project_documents').update(updates).eq('id', id).select().single()
+    .from('project_documents').update(patch).eq('id', id).select().single()
   if (error) throw error
   return data
 }

@@ -4,17 +4,31 @@
 // Edge Function impersonates the user via their JWT — all RLS + role checks
 // continue to apply server-side, so a "member" can't accidentally elevate.
 //
-// Backed by Groq (OpenAI-compatible API) — Llama 3.3 70B Versatile,
-// free tier: 30 RPM / 14,400 RPD (vs Gemini free's 20 RPM / 250 RPD).
+// Backed by OpenAI gpt-4.1-nano. ~$0.10/$0.40 per 1M tokens, with automatic
+// prompt caching that drops input cost to ~$0.025/1M for cached prefixes —
+// our system prompt + tool catalogue cache cleanly across calls within a
+// 5-10 min window.
+//
+// Token-reduction techniques applied here:
+//   • Pinned model snapshot (gpt-4.1-nano-2025-04-14) — required for
+//     stable prompt-cache reuse.
+//   • System prompt + tool catalogue placed first in `messages` and is
+//     stable per request → automatic prompt caching kicks in (>1024 tokens).
+//   • parallel_tool_calls = false — prevents the model from emitting
+//     multiple tool calls in one turn, which usually wastes output tokens
+//     when only one would have been correct.
+//   • max_tokens lowered to 512 — replies are short summaries; we never
+//     need 1024 output tokens for a CRM answer.
+//   • temperature 0.2 (low) — deterministic responses help cache hits.
 //
 // Loop:
 //   1. Receive messages + optional confirmed_action
 //   2. If confirmed_action → execute it as a tool call, then continue with model
-//   3. Call Groq with conversation + tool definitions
-//   4. If Groq returns text → return as assistant message
-//   5. If Groq returns tool_calls:
+//   3. Call OpenAI with conversation + tool definitions
+//   4. If model returns text → return as assistant message
+//   5. If model returns tool_calls:
 //        - If tool is unsafe → return pending_action for UI confirmation
-//        - If tool is safe → execute, append result, loop back to Groq
+//        - If tool is safe → execute, append result, loop back to model
 //   6. Cap at MAX_STEPS to prevent runaway
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
@@ -28,12 +42,13 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
-// Groq (OpenAI-compatible). Llama 4 Scout is Groq's recommended tool-use
-// model — Llama 3.3 70B occasionally emits its native <function=name{...}>
-// syntax which Groq rejects with `tool_use_failed`. Llama 4 always emits
-// the OpenAI structured tool_calls format. ~14,400 RPD free tier.
-const MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
+// OpenAI gpt-4.1-nano. Pinned to a specific snapshot so the auto prompt-cache
+// can match across calls. (The float-version "gpt-4.1-nano" alias also works,
+// but the dated snapshot keeps cache hits stable when OpenAI rotates aliases.)
+const MODEL = 'gpt-4.1-nano-2025-04-14'
+const OPENAI_BASE_URL = 'https://api.openai.com/v1'
 const MAX_STEPS = 6
+const MAX_OUTPUT_TOKENS = 512
 
 // -------- TOOL TYPE -----------------------------------------------------------
 type ToolCtx = {
@@ -251,6 +266,42 @@ const TOOLS: Tool[] = [
       const { data, error } = await sb
         .from('tasks').select('id,title,priority,due_date,column_id,assignee:profiles!tasks_assignee_id_fkey(full_name)')
         .eq('project_id', projectId).order('position')
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'list_project_phases',
+    description: 'List the phases of a project (by name) — name, status, dates, milestone amount, and per-phase deliverable progress (done/total).',
+    parameters: { type: 'object', properties: { project_name: { type: 'string' } }, required: ['project_name'] },
+    summarize: (_args, result: any) => `Listed ${result?.length ?? 0} phases`,
+    handler: async ({ project_name }, { sb }) => {
+      const projectId = await findProjectId(sb, project_name)
+      const { data, error } = await sb
+        .from('project_phases')
+        .select('id,name,status,start_date,end_date,amount,position,deliverables:phase_deliverables(id,done)')
+        .eq('project_id', projectId).order('position')
+      if (error) throw error
+      return (data ?? []).map((p: any) => ({
+        name: p.name, status: p.status,
+        start_date: p.start_date, end_date: p.end_date,
+        amount: p.amount,
+        deliverables_done: (p.deliverables ?? []).filter((d: any) => d.done).length,
+        deliverables_total: (p.deliverables ?? []).length
+      }))
+    }
+  },
+  {
+    name: 'list_project_documents',
+    description: 'List documents (proposals, agreements, invoices, specs, etc.) attached to a project (by name).',
+    parameters: { type: 'object', properties: { project_name: { type: 'string' } }, required: ['project_name'] },
+    summarize: (_args, result: any) => `Listed ${result?.length ?? 0} documents`,
+    handler: async ({ project_name }, { sb }) => {
+      const projectId = await findProjectId(sb, project_name)
+      const { data, error } = await sb
+        .from('project_documents')
+        .select('id,kind,title,doc_date,amount,version,external_url,file_name')
+        .eq('project_id', projectId).order('doc_date', { ascending: false })
       if (error) throw error
       return data
     }
@@ -1441,21 +1492,19 @@ Vocabulary distinction (don't confuse — these are different tables):
 - A person can be one, both, or neither.
 
 Capabilities:
-- Reads (always safe): list_*, get_business_overview, get_project_financials, get_monthly_revenue_expenses, get_top_customers, get_upcoming_invoice_due, monthly_expense_summary, dashboard_summary.
-- Creates (always safe): create_customer, create_project, create_task, create_expense, create_invoice, create_employee, create_salary, add_team_member, add_task_comment, add_checklist_item, set_checklist_item_done, create_task_column, create_label, attach_label, add_project_update.
-- Updates and deletes (CONFIRM REQUIRED — the framework auto-pauses for the user): update_*, delete_record, mark_invoice_paid, set_project_status, pay_salary, set_profile_role, set_team_member_active, generate_monthly_salaries, move_task.
+- Reads (safe): list_* (incl. list_project_phases, list_project_documents, list_tasks), get_business_overview, get_project_financials, get_monthly_revenue_expenses, get_top_customers, get_upcoming_invoice_due, monthly_expense_summary, dashboard_summary.
+- Creates (safe): create_customer/_project/_task/_expense/_invoice/_employee/_salary, add_team_member, add_task_comment/_checklist_item, set_checklist_item_done, create_task_column/_label, attach_label, add_project_update.
+- Updates/deletes (CONFIRM REQUIRED — framework auto-pauses): update_*, delete_record, mark_invoice_paid, set_project_status, pay_salary, set_profile_role, set_team_member_active, generate_monthly_salaries, move_task.
 
 Guidelines:
-- All currency is LKR (Sri Lankan Rupees).
-- **Call the matching tool first.** Every name-accepting tool does fuzzy lookup; you almost never need to ask for a UUID. Only ask for clarification when a tool returns "no match" or "multiple matches".
-- The user refers to records descriptively ("the test member", "the LMS project", "the tea expense"). Pass those words straight into the tool's \`name\` / \`match\` argument.
-- For "how are we doing" / financial questions, use get_business_overview or get_project_financials before pulling raw lists. They return computed numbers in one call.
+- Currency: LKR (Sri Lankan Rupees).
+- Call the matching tool first. Name-accepting tools do fuzzy lookup; ask for clarification only on "no match" / "multiple matches".
+- Project-specific questions ("LMS phases?", "what's in Travellers proposal?") → use list_project_phases / list_project_documents. The user can be Sinhala/English mixed — pass the English-ish project name through.
+- "How are we doing" → get_business_overview or get_project_financials before raw lists.
 - After an action, summarize the result in one sentence with the key numbers/names.
-- Multiple tools are OK in one turn; chain them when sensible (look up first, act second).
-- For risky actions (mark paid, change role, delete, pay salary, change project status) the platform will pause for user confirmation — call them anyway; the framework handles the prompt.
-- Be concise. After a tool call, summarize the result in one sentence.
-- Never invent IDs. Look things up by name with the list_* / get_* tools.
-- If a tool returns an error, surface it plainly and offer the next step.`
+- For risky actions, just call the tool — the framework handles the confirm prompt.
+- Never invent IDs. Look things up by name.
+- If a tool returns an error, surface it plainly and suggest the next step.`
 
 // Custom error type so the main handler can render a friendly message
 // for rate-limit responses instead of a 502 to the client.
@@ -1464,83 +1513,32 @@ class RateLimitError extends Error {
   constructor(retryAfterSec: number, msg: string) { super(msg); this.retryAfterSec = retryAfterSec }
 }
 
-/**
- * Llama models on Groq sometimes emit malformed tool calls — either their
- * native syntax (Llama 3.x) or a JSON array of {name, parameters} objects
- * (Llama 4). Groq rejects with `tool_use_failed` and includes the raw text
- * in `failed_generation`. Parse here so the conversation can recover.
- *
- * We also strip null values from parsed args — Llama loves to send
- * `{"category": null}` for optional fields, which violates strict OpenAI
- * schemas and causes a separate validation error.
- */
-function parseFailedGeneration(failedText: string): { name: string; arguments: string } | null {
-  // Shape 1: <function=NAME{...}</function>  or  <function=NAME>{...}</function>
-  const m1 = /<function=([\w.-]+)>?\s*(\{[\s\S]*?\})\s*<\/function>/i.exec(failedText)
-  if (m1) return { name: m1[1], arguments: cleanArgs(m1[2]) }
-
-  // Shape 2: <|python_tag|>NAME.call({...})
-  const m2 = /<\|python_tag\|>\s*([\w.-]+)\.call\((\{[\s\S]*?\})\)/i.exec(failedText)
-  if (m2) return { name: m2[1], arguments: cleanArgs(m2[2]) }
-
-  // Shape 3: JSON array — [{"name": "...", "parameters" or "arguments": {...}}]
-  // or single object — possibly with leading commentary text before the JSON.
-  // Locate the first `[` or `{` and parse from there.
-  const firstBracket = failedText.search(/[\[{]/)
-  if (firstBracket >= 0) {
-    const candidate = failedText.slice(firstBracket).trim()
-    // Try shrinking from the right to find a complete JSON parse
-    for (let end = candidate.length; end > 0; end--) {
-      try {
-        const parsed = JSON.parse(candidate.slice(0, end))
-        const first = Array.isArray(parsed) ? parsed[0] : parsed
-        if (first && typeof first === 'object' && first.name) {
-          const argObj = first.parameters ?? first.arguments ?? {}
-          return { name: first.name, arguments: cleanArgs(JSON.stringify(argObj)) }
-        }
-        break  // parsed but not a tool call
-      } catch { /* keep shrinking */ }
-    }
-  }
-
-  return null
-}
-
-/** Strip null/undefined values from a JSON args string */
-function cleanArgs(raw: string): string {
-  try {
-    const obj = JSON.parse(raw)
-    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-      const cleaned: any = {}
-      for (const [k, v] of Object.entries(obj)) {
-        if (v !== null && v !== undefined) cleaned[k] = v
-      }
-      return JSON.stringify(cleaned)
-    }
-  } catch { /* fall through */ }
-  return raw
-}
-
-async function callGroq(messages: any[], tools: Tool[], groqKey: string): Promise<any> {
-  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+async function callOpenAI(messages: any[], tools: Tool[], openaiKey: string): Promise<any> {
+  // Note: the SYSTEM_PROMPT + tools array are stable per request, so OpenAI's
+  // automatic prompt-cache will reuse them across conversations within a
+  // 5–10 min window. This drops effective input cost ~75% on cached prefixes.
+  const resp = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${groqKey}`
+      'Authorization': `Bearer ${openaiKey}`
     },
     body: JSON.stringify({
       model: MODEL,
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
       tools: tools.map(toOpenAITool),
       tool_choice: 'auto',
+      parallel_tool_calls: false,
       temperature: 0.2,
-      max_tokens: 1024
+      max_tokens: MAX_OUTPUT_TOKENS
     })
   })
   if (!resp.ok) {
     const txt = await resp.text()
     if (resp.status === 429) {
-      // Groq returns either a Retry-After header or "Please try again in Xs" / "X.YYs" in the body
+      // OpenAI surfaces rate / quota issues as 429. The retry hint lives
+      // either in the Retry-After header (seconds or HTTP-date) or in the
+      // body text "Please try again in Xs".
       let retry = 30
       const headerVal = resp.headers.get('retry-after')
       if (headerVal) {
@@ -1552,33 +1550,7 @@ async function callGroq(messages: any[], tools: Tool[], groqKey: string): Promis
       }
       throw new RateLimitError(retry, txt.slice(0, 200))
     }
-    // Groq's tool_use_failed: try to parse the malformed function call so we
-    // can keep going. Synthesize a normal tool_calls response if we succeed.
-    if (resp.status === 400) {
-      try {
-        const errBody = JSON.parse(txt)
-        if (errBody?.error?.code === 'tool_use_failed' && errBody.error.failed_generation) {
-          const parsed = parseFailedGeneration(errBody.error.failed_generation)
-          if (parsed) {
-            return {
-              choices: [{
-                message: {
-                  role: 'assistant',
-                  content: null,
-                  tool_calls: [{
-                    id: `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,
-                    type: 'function',
-                    function: { name: parsed.name, arguments: parsed.arguments }
-                  }]
-                },
-                finish_reason: 'tool_calls'
-              }]
-            }
-          }
-        }
-      } catch { /* fall through */ }
-    }
-    throw new Error(`Groq ${resp.status}: ${txt.slice(0, 400)}`)
+    throw new Error(`OpenAI ${resp.status}: ${txt.slice(0, 400)}`)
   }
   return resp.json()
 }
@@ -1591,8 +1563,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const anonKey     = Deno.env.get('SUPABASE_ANON_KEY')!
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const groqKey     = Deno.env.get('GROQ_API_KEY')
-  if (!groqKey) return json({ error: 'GROQ_API_KEY not set' }, 500)
+  const openaiKey   = Deno.env.get('OPENAI_API_KEY')
+  if (!openaiKey) return json({ error: 'OPENAI_API_KEY not set' }, 500)
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'unauthorized' }, 401)
@@ -1613,7 +1585,7 @@ serve(async (req) => {
 
   const ctx: ToolCtx = { user: { id: user.id, email: user.email! }, profile: profile as any, sb, admin }
 
-  // Build OpenAI-format conversation. The system prompt is injected by callGroq.
+  // Build OpenAI-format conversation. The system prompt is injected by callOpenAI.
   const conv: any[] = []
   for (const m of incoming) {
     if (m.role === 'user') conv.push({ role: 'user', content: m.content })
@@ -1670,7 +1642,7 @@ serve(async (req) => {
   for (let step = 0; step < MAX_STEPS; step++) {
     let resp
     try {
-      resp = await callGroq(conv, availableTools, groqKey)
+      resp = await callOpenAI(conv, availableTools, openaiKey)
     } catch (e) {
       // Render rate-limit as a friendly assistant message (200) instead of 502 —
       // so the chat panel shows it inline like any other turn.
