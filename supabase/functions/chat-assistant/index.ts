@@ -128,6 +128,51 @@ async function findTeamMember(sb: SupabaseClient, query: string) {
   }`)
 }
 
+async function findTaskByTitle(sb: SupabaseClient, projectName: string | null, title: string) {
+  let q = sb.from('tasks').select('id, title, project_id').ilike('title', `%${title}%`)
+  if (projectName) {
+    const projectId = await findProjectId(sb, projectName)
+    q = q.eq('project_id', projectId)
+  }
+  const { data } = await q.limit(2)
+  if (!data?.length) throw new Error(`No task matching "${title}"`)
+  if (data.length > 1) throw new Error(`Multiple tasks match "${title}": ${data.map((t: any) => t.title).join(', ')}`)
+  return data[0]
+}
+
+async function findExpense(sb: SupabaseClient, query: string) {
+  const { data } = await sb.from('expenses').select('id, description, amount').ilike('description', `%${query}%`).limit(3)
+  if (!data?.length) throw new Error(`No expense matching "${query}"`)
+  if (data.length > 1) throw new Error(`Multiple expenses match "${query}": ${data.map((e: any) => `${e.description} (LKR ${e.amount})`).join(', ')}`)
+  return data[0]
+}
+
+async function findSalary(sb: SupabaseClient, employeeName: string, year: number, month: number) {
+  const empId = await findEmployeeId(sb, employeeName)
+  const { data } = await sb.from('salaries').select('*')
+    .eq('employee_id', empId).eq('period_year', year).eq('period_month', month).maybeSingle()
+  if (!data) throw new Error(`No salary record for ${employeeName} in ${year}-${String(month).padStart(2, '0')}`)
+  return data
+}
+
+async function findLabel(sb: SupabaseClient, projectName: string, labelName: string) {
+  const projectId = await findProjectId(sb, projectName)
+  const { data } = await sb.from('task_labels').select('id, name, color')
+    .eq('project_id', projectId).ilike('name', labelName).limit(2)
+  if (!data?.length) throw new Error(`No label "${labelName}" on project "${projectName}"`)
+  if (data.length > 1) throw new Error(`Multiple labels match: ${data.map((l: any) => l.name).join(', ')}`)
+  return { ...data[0], project_id: projectId }
+}
+
+/** Pick out only the keys with non-null values from an args object */
+function compactUpdates<T extends Record<string, any>>(updates: T): Partial<T> {
+  const out: any = {}
+  for (const [k, v] of Object.entries(updates)) {
+    if (v !== undefined && v !== null && v !== '') out[k] = v
+  }
+  return out
+}
+
 // -------- TOOL DEFINITIONS ----------------------------------------------------
 const TOOLS: Tool[] = [
   // ---------- READ ----------
@@ -437,7 +482,752 @@ const TOOLS: Tool[] = [
     }
   },
 
+  // ---------- INSIGHTS / RAG (read, safe) ----------
+  {
+    name: 'get_business_overview',
+    description: 'Headline financial picture for a period: revenue, expenses, net, by-category breakdown, top customer, top projects.',
+    parameters: {
+      type: 'object',
+      properties: {
+        period: {
+          type: 'string',
+          enum: ['this_month', 'last_month', 'last_3_months', 'ytd', 'last_12_months', 'all_time'],
+          description: 'Default this_month'
+        }
+      }
+    },
+    summarize: (args, result: any) => `Overview · ${args.period ?? 'this_month'} · revenue LKR ${Math.round(result?.revenue ?? 0).toLocaleString()}`,
+    handler: async ({ period = 'this_month' }, { sb }) => {
+      const now = new Date()
+      let from: string | null = null
+      const today = now.toISOString().slice(0, 10)
+      if (period === 'this_month') from = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
+      else if (period === 'last_month') {
+        const d = new Date(now); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1)
+        from = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`
+      }
+      else if (period === 'last_3_months') {
+        const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 3); from = d.toISOString().slice(0, 10)
+      }
+      else if (period === 'ytd') from = `${now.getUTCFullYear()}-01-01`
+      else if (period === 'last_12_months') {
+        const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 12); from = d.toISOString().slice(0, 10)
+      }
+      // all_time: from = null
+
+      // Revenue from paid invoices (use paid_at if present, else issue_date)
+      let invQ = sb.from('invoices').select('total, customer:customers(name)').eq('status', 'paid')
+      if (from) invQ = invQ.gte('issue_date', from)
+      const { data: invoices } = await invQ
+      const revenue = (invoices || []).reduce((s: number, r: any) => s + Number(r.total ?? 0), 0)
+
+      // Expenses
+      let expQ = sb.from('expenses').select('amount, category, project_id, project:projects(name)')
+      if (from) expQ = expQ.gte('expense_date', from)
+      const { data: expenses } = await expQ
+      const totalExpenses = (expenses || []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0)
+
+      const byCategory: Record<string, number> = {}
+      for (const e of expenses ?? []) byCategory[e.category] = (byCategory[e.category] ?? 0) + Number(e.amount ?? 0)
+
+      // Top customer by paid revenue (period)
+      const customerTotals: Record<string, number> = {}
+      for (const i of invoices ?? []) {
+        const n = i.customer?.name ?? 'Unknown'
+        customerTotals[n] = (customerTotals[n] ?? 0) + Number(i.total ?? 0)
+      }
+      const top_customers = Object.entries(customerTotals)
+        .sort((a, b) => b[1] - a[1]).slice(0, 5)
+        .map(([name, total]) => ({ name, total }))
+
+      // Unpaid invoices summary
+      const { data: unpaid } = await sb.from('invoices').select('total, status').in('status', ['sent', 'overdue'])
+      const unpaid_total = (unpaid || []).reduce((s: number, r: any) => s + Number(r.total ?? 0), 0)
+
+      return {
+        period,
+        from: from ?? 'inception',
+        to: today,
+        revenue,
+        expenses: totalExpenses,
+        net: revenue - totalExpenses,
+        invoices_in_period: invoices?.length ?? 0,
+        expenses_by_category: byCategory,
+        top_customers,
+        unpaid_invoices_total: unpaid_total,
+        unpaid_invoices_count: unpaid?.length ?? 0
+      }
+    }
+  },
+  {
+    name: 'get_project_financials',
+    description: 'Detailed money picture for one project: budget, paid revenue, expenses, net profit, % of budget consumed.',
+    parameters: {
+      type: 'object',
+      properties: { project_name: { type: 'string' } },
+      required: ['project_name']
+    },
+    summarize: (args, result: any) => `${args.project_name}: net LKR ${Math.round(result?.net ?? 0).toLocaleString()}`,
+    handler: async ({ project_name }, { sb }) => {
+      const projectId = await findProjectId(sb, project_name)
+      const { data: project } = await sb.from('projects')
+        .select('id, name, status, budget, start_date, end_date, customer:customers(name,company)')
+        .eq('id', projectId).single()
+      const { data: paidInvs } = await sb.from('invoices').select('total').eq('project_id', projectId).eq('status', 'paid')
+      const { data: openInvs } = await sb.from('invoices').select('total').eq('project_id', projectId).in('status', ['sent', 'overdue', 'draft'])
+      const { data: exps } = await sb.from('expenses').select('amount, category').eq('project_id', projectId)
+
+      const paid_revenue = (paidInvs || []).reduce((s: number, r: any) => s + Number(r.total ?? 0), 0)
+      const open_revenue = (openInvs || []).reduce((s: number, r: any) => s + Number(r.total ?? 0), 0)
+      const total_expenses = (exps || []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0)
+      const budget = Number(project?.budget ?? 0)
+
+      return {
+        project: project?.name,
+        status: project?.status,
+        customer: project?.customer ? (project.customer.company || project.customer.name) : null,
+        budget,
+        paid_revenue,
+        open_revenue,
+        total_invoiced: paid_revenue + open_revenue,
+        total_expenses,
+        net: paid_revenue - total_expenses,
+        budget_consumed_percent: budget > 0 ? +((total_expenses / budget) * 100).toFixed(1) : null,
+        revenue_vs_budget_percent: budget > 0 ? +((paid_revenue / budget) * 100).toFixed(1) : null
+      }
+    }
+  },
+  {
+    name: 'get_monthly_revenue_expenses',
+    description: 'Per-month revenue + expenses series for the last N months. Useful for trend questions.',
+    parameters: {
+      type: 'object',
+      properties: { months: { type: 'number', description: 'Default 12' } }
+    },
+    summarize: (args, result: any) => `${result?.length ?? 0} months of revenue/expense data`,
+    handler: async ({ months = 12 }, { sb }) => {
+      const series: { month: string; revenue: number; expenses: number; net: number }[] = []
+      const now = new Date()
+      for (let i = months - 1; i >= 0; i--) {
+        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
+        const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))
+        const fromStr = d.toISOString().slice(0, 10)
+        const toStr = next.toISOString().slice(0, 10)
+        const { data: invs } = await sb.from('invoices').select('total').eq('status', 'paid').gte('issue_date', fromStr).lt('issue_date', toStr)
+        const { data: exps } = await sb.from('expenses').select('amount').gte('expense_date', fromStr).lt('expense_date', toStr)
+        const rev = (invs || []).reduce((s: number, r: any) => s + Number(r.total ?? 0), 0)
+        const exp = (exps || []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0)
+        series.push({ month: fromStr.slice(0, 7), revenue: rev, expenses: exp, net: rev - exp })
+      }
+      return series
+    }
+  },
+  {
+    name: 'get_top_customers',
+    description: 'Top customers by paid revenue (all-time). Default 5.',
+    parameters: { type: 'object', properties: { limit: { type: 'number' } } },
+    summarize: (_args, result: any) => `Top ${result?.length ?? 0} customers`,
+    handler: async ({ limit = 5 }, { sb }) => {
+      const { data } = await sb.from('invoices')
+        .select('total, customer:customers(name,company)').eq('status', 'paid')
+      const totals: Record<string, { name: string; company: string | null; total: number; count: number }> = {}
+      for (const i of data ?? []) {
+        const k = i.customer?.name ?? 'Unknown'
+        if (!totals[k]) totals[k] = { name: k, company: i.customer?.company ?? null, total: 0, count: 0 }
+        totals[k].total += Number(i.total ?? 0)
+        totals[k].count += 1
+      }
+      return Object.values(totals).sort((a, b) => b.total - a.total).slice(0, limit)
+    }
+  },
+  {
+    name: 'get_upcoming_invoice_due',
+    description: 'Invoices with a due_date in the next N days that are not yet paid. Default 14 days.',
+    parameters: { type: 'object', properties: { days: { type: 'number' } } },
+    summarize: (_args, result: any) => `${result?.length ?? 0} upcoming due`,
+    handler: async ({ days = 14 }, { sb }) => {
+      const now = new Date()
+      const until = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + days)).toISOString().slice(0, 10)
+      const today = now.toISOString().slice(0, 10)
+      const { data } = await sb.from('invoices')
+        .select('invoice_no, total, status, due_date, customer:customers(name)')
+        .in('status', ['sent', 'draft', 'overdue'])
+        .gte('due_date', today).lte('due_date', until).order('due_date')
+      return data ?? []
+    }
+  },
+  {
+    name: 'monthly_expense_summary',
+    description: 'Total expenses for a specific month, broken down by category.',
+    parameters: {
+      type: 'object',
+      properties: { year: { type: 'number' }, month: { type: 'number' } },
+      required: ['year', 'month']
+    },
+    summarize: (args, result: any) => `${args.year}-${String(args.month).padStart(2,'0')}: LKR ${Math.round(result?.total ?? 0).toLocaleString()}`,
+    handler: async ({ year, month }, { sb }) => {
+      const from = `${year}-${String(month).padStart(2, '0')}-01`
+      const next = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`
+      const { data } = await sb.from('expenses').select('amount, category')
+        .gte('expense_date', from).lt('expense_date', next)
+      const total = (data || []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0)
+      const by_category: Record<string, number> = {}
+      for (const e of data ?? []) by_category[e.category] = (by_category[e.category] ?? 0) + Number(e.amount ?? 0)
+      return { year, month, total, count: data?.length ?? 0, by_category }
+    }
+  },
+
+  // ---------- ADDITIONAL CREATES (safe) ----------
+  {
+    name: 'create_employee',
+    description: 'Add an employee (HR record). Super-admin only. Does NOT create a login user — use add_team_member for that.',
+    parameters: {
+      type: 'object',
+      properties: {
+        full_name: { type: 'string' },
+        email: { type: 'string' },
+        phone: { type: 'string' },
+        role: { type: 'string', description: 'Job title (e.g. "Engineer", "Founder")' },
+        employment_type: { type: 'string', enum: ['full_time', 'part_time', 'contract', 'intern'] },
+        base_salary: { type: 'number' },
+        joined_on: { type: 'string', description: 'YYYY-MM-DD' },
+        notes: { type: 'string' }
+      },
+      required: ['full_name']
+    },
+    superAdminOnly: true,
+    summarize: (args) => `Added employee "${args.full_name}"`,
+    handler: async (args, { sb, user }) => {
+      const { data, error } = await sb.from('employees').insert({
+        full_name: args.full_name,
+        email: args.email ?? null,
+        phone: args.phone ?? null,
+        role: args.role ?? null,
+        employment_type: args.employment_type ?? 'full_time',
+        base_salary: Number(args.base_salary ?? 0),
+        joined_on: args.joined_on ?? null,
+        active: true,
+        notes: args.notes ?? null,
+        created_by: user.id
+      }).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'create_salary',
+    description: 'Manually create a salary record (status=pending). For automatic generation of all active employees, use generate_monthly_salaries.',
+    parameters: {
+      type: 'object',
+      properties: {
+        employee_name: { type: 'string' },
+        year: { type: 'number' },
+        month: { type: 'number' },
+        amount: { type: 'number' },
+        bonus: { type: 'number' },
+        deductions: { type: 'number' },
+        notes: { type: 'string' }
+      },
+      required: ['employee_name', 'year', 'month', 'amount']
+    },
+    superAdminOnly: true,
+    summarize: (args) => `Salary record for ${args.employee_name} ${args.year}-${String(args.month).padStart(2,'0')}`,
+    handler: async (args, { sb, user }) => {
+      const empId = await findEmployeeId(sb, args.employee_name)
+      const amount = Number(args.amount), bonus = Number(args.bonus ?? 0), deductions = Number(args.deductions ?? 0)
+      const { data, error } = await sb.from('salaries').insert({
+        employee_id: empId,
+        period_year: Number(args.year), period_month: Number(args.month),
+        amount, bonus, deductions, net_amount: amount + bonus - deductions,
+        status: 'pending', notes: args.notes ?? null, created_by: user.id
+      }).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'add_team_member',
+    description: 'Create a new login user and grant them member or super_admin access. Sends nothing automatically — share the temp password securely.',
+    parameters: {
+      type: 'object',
+      properties: {
+        email: { type: 'string' },
+        full_name: { type: 'string' },
+        role: { type: 'string', enum: ['member', 'super_admin'] },
+        password: { type: 'string', description: 'Optional. If omitted, a 12-char temp password is generated and returned.' }
+      },
+      required: ['email', 'full_name']
+    },
+    superAdminOnly: true,
+    summarize: (args) => `Added ${args.role ?? 'member'} ${args.full_name}`,
+    handler: async (args, { admin }) => {
+      const role = args.role === 'super_admin' ? 'super_admin' : 'member'
+      const tempPw = args.password ?? (() => {
+        const lower = 'abcdefghjkmnpqrstuvwxyz', upper = 'ABCDEFGHJKMNPQRSTUVWXYZ', digits = '23456789'
+        const all = lower + upper + digits
+        const req = [lower[0|Math.random()*lower.length], upper[0|Math.random()*upper.length], digits[0|Math.random()*digits.length]]
+        const rest = Array.from({ length: 9 }, () => all[0|Math.random()*all.length])
+        return [...req, ...rest].sort(() => Math.random() - 0.5).join('')
+      })()
+      const { data: created, error } = await admin.auth.admin.createUser({
+        email: args.email, password: tempPw, email_confirm: true,
+        user_metadata: { full_name: args.full_name }
+      })
+      if (error) throw new Error(error.message)
+      await admin.from('profiles').update({ full_name: args.full_name, role }).eq('id', created.user!.id)
+      return { id: created.user!.id, email: args.email, full_name: args.full_name, role, temp_password: tempPw }
+    }
+  },
+  {
+    name: 'add_task_comment',
+    description: 'Add a comment to a task. Looks up by task title + project name.',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_title: { type: 'string' },
+        project_name: { type: 'string' },
+        body: { type: 'string' }
+      },
+      required: ['task_title', 'body']
+    },
+    summarize: (args) => `Commented on "${args.task_title}"`,
+    handler: async (args, { sb, user }) => {
+      const t = await findTaskByTitle(sb, args.project_name ?? null, args.task_title)
+      const { data, error } = await sb.from('task_comments').insert({
+        task_id: t.id, body: args.body, author_id: user.id
+      }).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'add_checklist_item',
+    description: 'Add a checklist item to a task.',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_title: { type: 'string' },
+        project_name: { type: 'string' },
+        body: { type: 'string' }
+      },
+      required: ['task_title', 'body']
+    },
+    summarize: (args) => `Added checklist item to "${args.task_title}"`,
+    handler: async (args, { sb }) => {
+      const t = await findTaskByTitle(sb, args.project_name ?? null, args.task_title)
+      const { count } = await sb.from('task_checklist_items').select('*', { count: 'exact', head: true }).eq('task_id', t.id)
+      const { data, error } = await sb.from('task_checklist_items').insert({
+        task_id: t.id, body: args.body, position: count ?? 0
+      }).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'set_checklist_item_done',
+    description: 'Toggle a checklist item as done or not done. Looks up the item by partial body text on the matching task.',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_title: { type: 'string' },
+        item_body: { type: 'string' },
+        done: { type: 'boolean' }
+      },
+      required: ['task_title', 'item_body', 'done']
+    },
+    summarize: (args) => `Marked "${args.item_body}" ${args.done ? 'done' : 'not done'}`,
+    handler: async (args, { sb }) => {
+      const t = await findTaskByTitle(sb, null, args.task_title)
+      const { data: items } = await sb.from('task_checklist_items')
+        .select('id, body').eq('task_id', t.id).ilike('body', `%${args.item_body}%`).limit(2)
+      if (!items?.length) throw new Error(`No checklist item matching "${args.item_body}"`)
+      if (items.length > 1) throw new Error(`Multiple items match: ${items.map((i: any) => i.body).join(', ')}`)
+      const { data, error } = await sb.from('task_checklist_items').update({ done: args.done }).eq('id', items[0].id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'create_task_column',
+    description: 'Add a new column to a project board (e.g. "Blocked"). Appended to the end.',
+    parameters: {
+      type: 'object',
+      properties: {
+        project_name: { type: 'string' },
+        name: { type: 'string' }
+      },
+      required: ['project_name', 'name']
+    },
+    summarize: (args) => `Added column "${args.name}" to ${args.project_name}`,
+    handler: async (args, { sb, user }) => {
+      const projectId = await findProjectId(sb, args.project_name)
+      const { count } = await sb.from('task_columns').select('*', { count: 'exact', head: true }).eq('project_id', projectId)
+      const { data, error } = await sb.from('task_columns').insert({
+        project_id: projectId, name: args.name, position: count ?? 0, created_by: user.id
+      }).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'create_label',
+    description: 'Create a label for a project (used to tag tasks).',
+    parameters: {
+      type: 'object',
+      properties: {
+        project_name: { type: 'string' },
+        name: { type: 'string' },
+        color: { type: 'string', description: 'Hex like #6366f1; optional' }
+      },
+      required: ['project_name', 'name']
+    },
+    summarize: (args) => `Added label "${args.name}" to ${args.project_name}`,
+    handler: async (args, { sb }) => {
+      const projectId = await findProjectId(sb, args.project_name)
+      const { data, error } = await sb.from('task_labels').insert({
+        project_id: projectId, name: args.name, color: args.color ?? '#6366f1'
+      }).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'attach_label',
+    description: 'Apply a label to a task.',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_title: { type: 'string' },
+        project_name: { type: 'string' },
+        label_name: { type: 'string' }
+      },
+      required: ['task_title', 'project_name', 'label_name']
+    },
+    summarize: (args) => `Labeled "${args.task_title}" with "${args.label_name}"`,
+    handler: async (args, { sb }) => {
+      const t = await findTaskByTitle(sb, args.project_name, args.task_title)
+      const lbl = await findLabel(sb, args.project_name, args.label_name)
+      const { error } = await sb.from('task_label_assignments').insert({ task_id: t.id, label_id: lbl.id })
+      if (error && error.code !== '23505') throw error  // ignore unique violation
+      return { task_id: t.id, label_id: lbl.id }
+    }
+  },
+
   // ---------- WRITE — UNSAFE (require confirmation) ----------
+  {
+    name: 'update_customer',
+    description: 'Update fields on a customer. Lookup via `match` (name/company) or `id`. Only fields you supply are changed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        match: { type: 'string', description: 'Customer name/company to look up. Provide id OR match.' },
+        id:    { type: 'string' },
+        name:    { type: 'string', description: 'New name' },
+        company: { type: 'string' },
+        email:   { type: 'string' },
+        phone:   { type: 'string' },
+        address: { type: 'string' },
+        notes:   { type: 'string' }
+      }
+    },
+    unsafe: true,
+    summarize: (args) => `update customer ${args.match ?? args.id?.slice(0,8)+'…'}`,
+    handler: async ({ match, id, ...rest }, { sb }) => {
+      if (!id && !match) throw new Error('Provide id or match')
+      if (!id) id = await findCustomerId(sb, match!)
+      const updates = compactUpdates(rest)
+      if (Object.keys(updates).length === 0) throw new Error('Nothing to update — supply at least one field')
+      const { data, error } = await sb.from('customers').update(updates).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'update_project',
+    description: 'Update a project. Status changes also use this. Only fields you pass are changed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        match: { type: 'string', description: 'Project name. Provide id OR match.' },
+        id:    { type: 'string' },
+        name:        { type: 'string', description: 'New name' },
+        customer_name: { type: 'string', description: 'Reassign to a different customer (looked up by name)' },
+        status:      { type: 'string', enum: ['planning','active','on_hold','completed','cancelled'] },
+        budget:      { type: 'number' },
+        start_date:  { type: 'string' },
+        end_date:    { type: 'string' },
+        description: { type: 'string' }
+      }
+    },
+    unsafe: true,
+    summarize: (args) => `update project ${args.match ?? args.id?.slice(0,8)+'…'}`,
+    handler: async ({ match, id, customer_name, ...rest }, { sb }) => {
+      if (!id && !match) throw new Error('Provide id or match')
+      if (!id) id = await findProjectId(sb, match!)
+      const updates: any = compactUpdates(rest)
+      if (customer_name) updates.customer_id = await findCustomerId(sb, customer_name)
+      if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      const { data, error } = await sb.from('projects').update(updates).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'update_task',
+    description: 'Update a task. Lookup by task title (and optionally project_name to disambiguate).',
+    parameters: {
+      type: 'object',
+      properties: {
+        match:        { type: 'string', description: 'Task title to look up' },
+        project_name: { type: 'string', description: 'Helps disambiguate' },
+        id:           { type: 'string' },
+        title:          { type: 'string', description: 'New title' },
+        description:    { type: 'string' },
+        priority:       { type: 'string', enum: ['low','medium','high','urgent'] },
+        due_date:       { type: 'string' },
+        assignee_email: { type: 'string', description: 'Reassign to a team member by email' },
+        completed:      { type: 'boolean', description: 'Mark complete (true) or reopen (false)' }
+      }
+    },
+    unsafe: true,
+    summarize: (args) => `update task "${args.match ?? args.id?.slice(0,8)+'…'}"`,
+    handler: async ({ match, id, project_name, assignee_email, completed, ...rest }, { sb }) => {
+      if (!id && !match) throw new Error('Provide id or match')
+      if (!id) id = (await findTaskByTitle(sb, project_name ?? null, match!)).id
+      const updates: any = compactUpdates(rest)
+      if (assignee_email !== undefined && assignee_email !== '') {
+        const p = await findProfileByEmail(sb, assignee_email)
+        updates.assignee_id = p.id
+      }
+      if (completed === true)  updates.completed_at = new Date().toISOString()
+      if (completed === false) updates.completed_at = null
+      if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      const { data, error } = await sb.from('tasks').update(updates).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'move_task',
+    description: 'Move a task to another column on the same project board. Use this for drag-drop-style moves.',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_title:  { type: 'string' },
+        project_name: { type: 'string' },
+        to_column:   { type: 'string' }
+      },
+      required: ['task_title', 'to_column']
+    },
+    unsafe: true,
+    summarize: (args) => `move "${args.task_title}" to ${args.to_column}`,
+    handler: async ({ task_title, project_name, to_column }, { sb }) => {
+      const t = await findTaskByTitle(sb, project_name ?? null, task_title)
+      const targetColumnId = await findColumnId(sb, t.project_id, to_column)
+      const { count } = await sb.from('tasks').select('*', { count: 'exact', head: true }).eq('column_id', targetColumnId)
+      const { error } = await sb.rpc('move_task', { p_task_id: t.id, p_new_column_id: targetColumnId, p_new_position: count ?? 0 })
+      if (error) throw error
+      return { moved: true, task_id: t.id, to_column_id: targetColumnId }
+    }
+  },
+  {
+    name: 'update_invoice',
+    description: 'Update invoice metadata. Note: replacing line items overwrites the existing items array entirely.',
+    parameters: {
+      type: 'object',
+      properties: {
+        match: { type: 'string', description: 'invoice_no like INV-0001' },
+        id:    { type: 'string' },
+        status:     { type: 'string', enum: ['draft','sent','paid','overdue','cancelled'] },
+        issue_date: { type: 'string' },
+        due_date:   { type: 'string' },
+        tax_rate:   { type: 'number' },
+        notes:      { type: 'string' },
+        items: {
+          type: 'array',
+          description: 'If supplied, REPLACES all existing line items. Each: {description, quantity, unit_price}.',
+          items: { type: 'object', properties: {
+            description: { type: 'string' }, quantity: { type: 'number' }, unit_price: { type: 'number' }
+          } }
+        }
+      }
+    },
+    unsafe: true,
+    summarize: (args) => `update invoice ${args.match ?? args.id?.slice(0,8)+'…'}`,
+    handler: async ({ match, id, items, ...rest }, { sb }) => {
+      if (!id && !match) throw new Error('Provide id or match (invoice_no)')
+      if (!id) { const inv = await findInvoiceByNo(sb, match!); id = inv.id }
+      const updates: any = compactUpdates(rest)
+      if (rest.status === 'paid' && updates.status === 'paid') updates.paid_at = new Date().toISOString()
+      if (rest.status && rest.status !== 'paid') updates.paid_at = null
+
+      // Recompute totals if items provided
+      if (Array.isArray(items)) {
+        await sb.from('invoice_items').delete().eq('invoice_id', id)
+        const computed = items.map((it: any, i: number) => ({
+          invoice_id: id, description: it.description, quantity: Number(it.quantity ?? 1),
+          unit_price: Number(it.unit_price ?? 0),
+          amount: Number(it.quantity ?? 1) * Number(it.unit_price ?? 0), position: i
+        }))
+        const subtotal = computed.reduce((s: number, it: any) => s + it.amount, 0)
+        const tax_rate = Number(rest.tax_rate ?? updates.tax_rate ?? 0)
+        const tax_amount = +(subtotal * tax_rate / 100).toFixed(2)
+        updates.subtotal = subtotal
+        updates.tax_amount = tax_amount
+        updates.total = subtotal + tax_amount
+        if (computed.length) await sb.from('invoice_items').insert(computed)
+      }
+
+      if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      const { data, error } = await sb.from('invoices').update(updates).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'update_expense',
+    description: 'Update an expense. Lookup by description substring.',
+    parameters: {
+      type: 'object',
+      properties: {
+        match: { type: 'string', description: 'Expense description (substring)' },
+        id:    { type: 'string' },
+        description:  { type: 'string', description: 'New description' },
+        amount:       { type: 'number' },
+        category:     { type: 'string', enum: ['Software','Hardware','Travel','Subcontractor','Marketing','Salary','Other'] },
+        expense_date: { type: 'string' },
+        project_name: { type: 'string', description: 'Reassign to a project; pass empty string to make it general' },
+        notes:        { type: 'string' }
+      }
+    },
+    unsafe: true,
+    summarize: (args) => `update expense "${args.match ?? args.id?.slice(0,8)+'…'}"`,
+    handler: async ({ match, id, project_name, ...rest }, { sb }) => {
+      if (!id && !match) throw new Error('Provide id or match')
+      if (!id) id = (await findExpense(sb, match!)).id
+      const updates: any = compactUpdates(rest)
+      if (project_name !== undefined) {
+        updates.project_id = project_name === '' ? null : await findProjectId(sb, project_name)
+      }
+      if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      const { data, error } = await sb.from('expenses').update(updates).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'update_employee',
+    description: 'Update an employee HR record. Super-admin only.',
+    parameters: {
+      type: 'object',
+      properties: {
+        match: { type: 'string', description: 'Employee full_name' },
+        id:    { type: 'string' },
+        full_name:       { type: 'string', description: 'New name' },
+        email:           { type: 'string' },
+        phone:           { type: 'string' },
+        role:            { type: 'string', description: 'Job title' },
+        employment_type: { type: 'string', enum: ['full_time','part_time','contract','intern'] },
+        base_salary:     { type: 'number' },
+        joined_on:       { type: 'string' },
+        active:          { type: 'boolean' },
+        notes:           { type: 'string' }
+      }
+    },
+    unsafe: true, superAdminOnly: true,
+    summarize: (args) => `update employee ${args.match ?? args.id?.slice(0,8)+'…'}`,
+    handler: async ({ match, id, ...rest }, { sb }) => {
+      if (!id && !match) throw new Error('Provide id or match')
+      if (!id) id = await findEmployeeId(sb, match!)
+      const updates = compactUpdates(rest)
+      if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      const { data, error } = await sb.from('employees').update(updates).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'update_salary',
+    description: 'Update a salary record (amount/bonus/deductions/notes). Super-admin only. Net amount is auto-recomputed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        employee_name: { type: 'string' },
+        year:          { type: 'number' },
+        month:         { type: 'number' },
+        amount:        { type: 'number' },
+        bonus:         { type: 'number' },
+        deductions:    { type: 'number' },
+        notes:         { type: 'string' }
+      },
+      required: ['employee_name', 'year', 'month']
+    },
+    unsafe: true, superAdminOnly: true,
+    summarize: (args) => `update salary ${args.employee_name} ${args.year}-${String(args.month).padStart(2,'0')}`,
+    handler: async ({ employee_name, year, month, ...rest }, { sb }) => {
+      const sal = await findSalary(sb, employee_name, year, month)
+      const updates: any = compactUpdates(rest)
+      const a = updates.amount ?? sal.amount
+      const b = updates.bonus ?? sal.bonus
+      const d = updates.deductions ?? sal.deductions
+      updates.net_amount = Number(a) + Number(b) - Number(d)
+      if (Object.keys(updates).length === 1 && 'net_amount' in updates) throw new Error('Nothing to update')
+      const { data, error } = await sb.from('salaries').update(updates).eq('id', sal.id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'update_team_member',
+    description: 'Update a team member\'s display name or role. Super-admin only for role; self-service for own name.',
+    parameters: {
+      type: 'object',
+      properties: {
+        email:     { type: 'string' },
+        full_name: { type: 'string' },
+        role:      { type: 'string', enum: ['member','super_admin'] }
+      },
+      required: ['email']
+    },
+    unsafe: true,
+    summarize: (args) => `update ${args.email}${args.role ? ' role to ' + args.role : ''}${args.full_name ? ' name to ' + args.full_name : ''}`,
+    handler: async ({ email, full_name, role }, { sb, profile }) => {
+      const p = await findProfileByEmail(sb, email)
+      if (role && profile.role !== 'super_admin') throw new Error('Only super_admin can change roles')
+      const updates = compactUpdates({ full_name, role })
+      if (Object.keys(updates).length === 0) throw new Error('Nothing to update')
+      const { data, error } = await sb.from('profiles').update(updates).eq('id', p.id).select().single()
+      if (error) throw error
+      return data
+    }
+  },
+  {
+    name: 'generate_monthly_salaries',
+    description: 'Bulk-create pending salary rows for every active employee for a given month, at their base_salary. Skips employees who already have a row. Super-admin only.',
+    parameters: {
+      type: 'object',
+      properties: { year: { type: 'number' }, month: { type: 'number' } },
+      required: ['year', 'month']
+    },
+    unsafe: true, superAdminOnly: true,
+    summarize: (args) => `generate ${args.year}-${String(args.month).padStart(2,'0')} salaries from base`,
+    handler: async ({ year, month }, { sb, user }) => {
+      const { data: employees } = await sb.from('employees').select('id, full_name, base_salary').eq('active', true)
+      const { data: existing } = await sb.from('salaries').select('employee_id').eq('period_year', year).eq('period_month', month)
+      const existingIds = new Set((existing || []).map((s: any) => s.employee_id))
+      const toInsert = (employees || [])
+        .filter((e: any) => !existingIds.has(e.id))
+        .map((e: any) => ({
+          employee_id: e.id, period_year: year, period_month: month,
+          amount: Number(e.base_salary ?? 0), bonus: 0, deductions: 0,
+          net_amount: Number(e.base_salary ?? 0), status: 'pending', created_by: user.id
+        }))
+      if (toInsert.length === 0) return { inserted: 0, message: 'All active employees already have a row for this period' }
+      const { data, error } = await sb.from('salaries').insert(toInsert).select()
+      if (error) throw error
+      return { inserted: data?.length ?? 0, employees: data?.map((d: any) => d.employee_id) }
+    }
+  },
   {
     name: 'mark_invoice_paid',
     description: 'Mark an invoice as paid by invoice number (e.g. "INV-0001").',
@@ -521,49 +1311,60 @@ const TOOLS: Tool[] = [
     description:
 `Delete one record. Provide EITHER \`id\` (UUID) OR \`name\` — the lookup is automatic.
 
-Important entity distinction:
-  • team_member  = a login user (profiles row).  Lookup by email or full name.
-  • employee     = an HR record (employees row). Different table.
-  • A person can be one, both, or neither.
+Vocabulary:
+  • team_member  = login user (profiles row). Lookup by email or full name.
+  • employee     = HR record (employees row). Different table.
+  • salary       = payroll record. Pass name = "Employee Name 2026-04" (or use id).
+  • task_comment / task_checklist_item / project_update — id required (audit trail).
+  • task_column  = a kanban column. Pass name = "ProjectName/ColumnName" or just column name + project_name. Use id when ambiguous.
+  • task_label   = pass name = "ProjectName/LabelName".
 
-For task: name = task title. For invoice: name = invoice_no like "INV-0001".
-For expense: name = description (substring match).`,
+Other lookups:
+  • task     → title
+  • invoice  → invoice_no like "INV-0001"
+  • expense  → description (substring)
+  • customer / project / employee → name`,
     parameters: {
       type: 'object',
       properties: {
         entity: {
           type: 'string',
-          enum: ['customer','project','task','invoice','expense','employee','team_member']
+          enum: [
+            'customer','project','task','invoice','expense','employee','team_member',
+            'salary','task_comment','task_checklist_item','task_column','task_label','project_update'
+          ]
         },
         id:   { type: 'string', description: 'UUID. Provide id OR name.' },
-        name: { type: 'string', description: 'Human-friendly identifier — looked up automatically.' }
+        name: { type: 'string', description: 'Human-friendly identifier — looked up automatically.' },
+        project_name: { type: 'string', description: 'Helps disambiguate kanban-related entities.' }
       },
       required: ['entity']
     },
     unsafe: true,
     summarize: (args) => `delete ${args.entity} "${args.name ?? (args.id ? args.id.slice(0,8)+'…' : '?')}"`,
-    handler: async ({ entity, id, name }, { sb, admin, profile }) => {
+    handler: async ({ entity, id, name, project_name }, { sb, admin, profile }) => {
       // Resolve name -> id
       if (!id && name) {
         if (entity === 'customer')      id = await findCustomerId(sb, name)
         else if (entity === 'project')  id = await findProjectId(sb, name)
         else if (entity === 'employee') id = await findEmployeeId(sb, name)
         else if (entity === 'invoice')  { const inv = await findInvoiceByNo(sb, name); id = inv.id }
-        else if (entity === 'task') {
-          const { data } = await sb.from('tasks').select('id, title').ilike('title', `%${name}%`).limit(2)
-          if (!data?.length)   throw new Error(`No task matching "${name}"`)
-          if (data.length > 1) throw new Error(`Multiple tasks match "${name}": ${data.map((t: any) => t.title).join(', ')}`)
-          id = data[0].id
+        else if (entity === 'task')     id = (await findTaskByTitle(sb, project_name ?? null, name)).id
+        else if (entity === 'expense')  id = (await findExpense(sb, name)).id
+        else if (entity === 'team_member') id = (await findTeamMember(sb, name)).id
+        else if (entity === 'task_column') {
+          if (!project_name) throw new Error('project_name is required for task_column lookup')
+          id = await findColumnId(sb, await findProjectId(sb, project_name), name)
         }
-        else if (entity === 'expense') {
-          const { data } = await sb.from('expenses').select('id, description').ilike('description', `%${name}%`).limit(2)
-          if (!data?.length)   throw new Error(`No expense matching "${name}"`)
-          if (data.length > 1) throw new Error(`Multiple expenses match "${name}": ${data.map((e: any) => e.description).join(', ')}`)
-          id = data[0].id
+        else if (entity === 'task_label') {
+          if (!project_name) throw new Error('project_name is required for task_label lookup')
+          id = (await findLabel(sb, project_name, name)).id
         }
-        else if (entity === 'team_member') {
-          const hit = await findTeamMember(sb, name)
-          id = hit.id
+        else if (entity === 'salary') {
+          // name format: "Employee Name 2026-04"
+          const m = name.match(/^(.+?)\s+(\d{4})-(\d{1,2})$/)
+          if (!m) throw new Error('For salary, pass name as "Employee Name YYYY-MM" or use id')
+          id = (await findSalary(sb, m[1].trim(), Number(m[2]), Number(m[3]))).id
         }
       }
       if (!id) throw new Error('Either id or name is required')
@@ -578,7 +1379,11 @@ For expense: name = description (substring match).`,
 
       const table = ({
         customer: 'customers', project: 'projects', task: 'tasks',
-        invoice: 'invoices', expense: 'expenses', employee: 'employees'
+        invoice: 'invoices', expense: 'expenses', employee: 'employees',
+        salary: 'salaries',
+        task_comment: 'task_comments', task_checklist_item: 'task_checklist_items',
+        task_column: 'task_columns', task_label: 'task_labels',
+        project_update: 'project_updates'
       } as Record<string, string>)[entity]
       if (!table) throw new Error('unknown entity')
       const { error } = await sb.from(table).delete().eq('id', id)
@@ -625,15 +1430,22 @@ async function callGemini(messages: any[], tools: Tool[], geminiKey: string) {
         parts: [{ text:
 `You are the WEDDZ PM assistant. Help the user manage customers, projects, invoices, expenses, salaries, and the kanban board for the WEDDZ IT business.
 
-Vocabulary distinction (don't confuse these — they are different tables):
-- TEAM MEMBER = a login user (profiles row). Has a role (super_admin or member). When the user says "team member", "user", or refers to someone on the /admin/users page, they mean this.
-- EMPLOYEE   = an HR record (employees row) with salary info. Used for payroll. A team member may or may not also be an employee.
+Vocabulary distinction (don't confuse — these are different tables):
+- TEAM MEMBER = a login user (profiles row). Has a role (super_admin or member).
+- EMPLOYEE   = an HR record (employees row) with salary info. Used for payroll.
+- A person can be one, both, or neither.
+
+Capabilities:
+- Reads (always safe): list_*, get_business_overview, get_project_financials, get_monthly_revenue_expenses, get_top_customers, get_upcoming_invoice_due, monthly_expense_summary, dashboard_summary.
+- Creates (always safe): create_customer, create_project, create_task, create_expense, create_invoice, create_employee, create_salary, add_team_member, add_task_comment, add_checklist_item, set_checklist_item_done, create_task_column, create_label, attach_label, add_project_update.
+- Updates and deletes (CONFIRM REQUIRED — the framework auto-pauses for the user): update_*, delete_record, mark_invoice_paid, set_project_status, pay_salary, set_profile_role, set_team_member_active, generate_monthly_salaries, move_task.
 
 Guidelines:
 - All currency is LKR (Sri Lankan Rupees).
-- When the user asks for an action, **call the tool first** — every name-accepting tool does fuzzy lookup. Only ask for clarification if the tool returns "no match" or "multiple matches".
-- The user often refers to records descriptively ("the test member", "the LMS project", "the tea expense"). Pass those words straight into the tool's \`name\` argument — the lookup will resolve them. Don't ask the user to type a UUID; UUIDs are for code, not humans.
-- For deletes: \`delete_record({ entity, name })\` is almost always what you want. Only fall back to asking for an ID if the tool reports ambiguity.
+- **Call the matching tool first.** Every name-accepting tool does fuzzy lookup; you almost never need to ask for a UUID. Only ask for clarification when a tool returns "no match" or "multiple matches".
+- The user refers to records descriptively ("the test member", "the LMS project", "the tea expense"). Pass those words straight into the tool's \`name\` / \`match\` argument.
+- For "how are we doing" / financial questions, use get_business_overview or get_project_financials before pulling raw lists. They return computed numbers in one call.
+- After an action, summarize the result in one sentence with the key numbers/names.
 - Multiple tools are OK in one turn; chain them when sensible (look up first, act second).
 - For risky actions (mark paid, change role, delete, pay salary, change project status) the platform will pause for user confirmation — call them anyway; the framework handles the prompt.
 - Be concise. After a tool call, summarize the result in one sentence.
