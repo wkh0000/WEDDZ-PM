@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Pencil, Trash2, Calendar, Wallet, Users, KanbanSquare, FileText, Receipt } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, Calendar, Wallet, Users, KanbanSquare, FileText, Receipt, ListChecks, FolderOpen } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -15,6 +15,8 @@ import { formatDate, formatLKR } from '@/lib/format'
 import { getProject, deleteProject, listProjectInvoices, listProjectExpenses } from '../api'
 import ProjectFormModal from '../components/ProjectFormModal'
 import ProjectUpdatesLog from '../components/ProjectUpdatesLog'
+import PhasesTab from '../components/PhasesTab'
+import DocumentsTab from '../components/DocumentsTab'
 import { projectStatusBadge } from '../components/ProjectStatusBadge'
 import { invoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge'
 
@@ -102,12 +104,17 @@ export default function ProjectDetailPage() {
         value={tab}
         onChange={setTab}
         items={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'updates',  label: 'Updates' },
-          { value: 'invoices', label: 'Invoices', count: invoices.length },
-          { value: 'expenses', label: 'Expenses', count: expenses.length }
+          { value: 'overview',  label: 'Overview' },
+          { value: 'phases',    label: 'Phases' },
+          { value: 'documents', label: 'Documents' },
+          { value: 'updates',   label: 'Updates' },
+          { value: 'invoices',  label: 'Invoices', count: invoices.length },
+          { value: 'expenses',  label: 'Expenses', count: expenses.length }
         ]}
       />
+
+      {tab === 'phases'    && <PhasesTab projectId={id} />}
+      {tab === 'documents' && <DocumentsTab projectId={id} />}
 
       {tab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
