@@ -1,9 +1,15 @@
 import { cn } from '@/lib/cn'
 
 export function Table({ children, className }) {
+  // The outer wrapper carries the glass surface + rounding. The inner
+  // `overflow-x-auto` lets the table scroll horizontally on narrow
+  // viewports (mobile lists with 5+ columns) instead of overflowing
+  // the page. `min-w-full` keeps the table at full width on desktop.
   return (
     <div className="glass rounded-2xl overflow-hidden">
-      <table className={cn('w-full text-sm', className)}>{children}</table>
+      <div className="overflow-x-auto">
+        <table className={cn('min-w-full text-sm', className)}>{children}</table>
+      </div>
     </div>
   )
 }

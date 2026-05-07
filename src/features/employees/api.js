@@ -24,11 +24,13 @@ export async function getEmployee(id) {
 }
 
 /**
- * Lookup by slug (e.g. 'kasun-wachindra'). Used by the employee
- * detail page when reading the slug from the URL.
+ * Lookup by slug (e.g. 'kasun-wachindra'). Used by the employee detail
+ * page when reading the slug from the URL. Returns `null` if no row
+ * matches — `.maybeSingle()` (not `.single()`) so PostgREST returns
+ * null instead of 406 on zero rows.
  */
 export async function getEmployeeBySlug(slug) {
-  const { data, error } = await supabase.from('employees').select('*').eq('slug', slug).single()
+  const { data, error } = await supabase.from('employees').select('*').eq('slug', slug).maybeSingle()
   if (error) throw error
   return data
 }

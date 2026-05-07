@@ -69,13 +69,19 @@ export default function BoardPage() {
     reloadingRef.current = true
     try {
       // 1) Resolve the project from the URL slug — with UUID fallback
-      //    that 301s to the canonical slug URL.
+      //    that 301s to the canonical slug URL. `getProjectBySlug` now
+      //    returns null (not 406) when the slug is unknown, so we
+      //    surface a clean "not found" state instead of throwing.
       let p
       if (isUuid(slug)) {
         p = await getProject(slug)
         if (p?.slug) navigate(`/projects/${p.slug}/board`, { replace: true })
       } else {
         p = await getProjectBySlug(slug)
+      }
+      if (!p) {
+        setProject(null); setColumns([]); setTasks([]); setLabels([]); setProfiles([])
+        return
       }
       // 2) Then fan out the rest using the UUID
       const [cs, ts, ls, ps] = await Promise.all([
@@ -98,13 +104,26 @@ export default function BoardPage() {
   useBoardRealtime(projectId, load)
 
   // ---- filters
+  // With multi-assignee, "filter by user X" means "X is on this task,
+  // not necessarily the primary". `t.assignees` is the normalized array
+  // populated by listTasks; we still fall back to assignee_id for the
+  // unlikely case the join-table backfill is mid-flight.
+  const taskHasAssignee = (t, id) =>
+    t.assignees?.some(a => a.id === id) || t.assignee_id === id
+
   const filteredTasks = useMemo(() => {
-    let arr = tasks
-    if (filters.assignee) arr = arr.filter(t => t.assignee_id === filters.assignee)
+    // Archived tasks are hidden from every view EXCEPT the explicit
+    // "Archived" smart filter. They still live in `tasks` and other
+    // filters (label, priority, etc.) compose on top of "Archived".
+    let arr = filters.smart === 'archived'
+      ? tasks.filter(t => !!t.archived_at)
+      : tasks.filter(t => !t.archived_at)
+
+    if (filters.assignee) arr = arr.filter(t => taskHasAssignee(t, filters.assignee))
     if (filters.priority) arr = arr.filter(t => t.priority === filters.priority)
     if (filters.label)    arr = arr.filter(t => t.labels?.some(l => l.id === filters.label))
 
-    if (filters.smart) {
+    if (filters.smart && filters.smart !== 'archived') {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7)
       const fmt = d => d.toISOString().slice(0, 10)
@@ -115,9 +134,9 @@ export default function BoardPage() {
       } else if (filters.smart === 'this_week') {
         arr = arr.filter(t => t.due_date && t.due_date >= todayStr && t.due_date <= weekEndStr && !t.completed_at)
       } else if (filters.smart === 'unassigned') {
-        arr = arr.filter(t => !t.assignee_id)
+        arr = arr.filter(t => (t.assignees?.length ?? 0) === 0 && !t.assignee_id)
       } else if (filters.smart === 'mine') {
-        arr = arr.filter(t => t.assignee_id === user?.id)
+        arr = arr.filter(t => taskHasAssignee(t, user?.id))
       } else if (filters.smart === 'completed') {
         arr = arr.filter(t => !!t.completed_at)
       }
@@ -174,7 +193,15 @@ export default function BoardPage() {
     let targetIndex = 0
 
     if (over.data.current?.type === 'column') {
-      targetColumnId = over.data.current.columnId
+      // Two flavors of column drop target end up here:
+      //   • Column body droppable — data is `{ type, columnId }`
+      //   • Column wrapper sortable — data is `{ type, column }`
+      // Earlier the code only read `columnId`, so dropping on the
+      // header (the sortable wrapper) silently produced an undefined
+      // target and the move was lost. Accept both shapes.
+      const cur = over.data.current
+      targetColumnId = cur.columnId ?? cur.column?.id
+      if (!targetColumnId) return
       targetIndex = (tasksByColumn[targetColumnId] ?? []).length
     } else {
       const overTask = tasks.find(t => t.id === over.id)
@@ -220,10 +247,17 @@ export default function BoardPage() {
         priority: args.priority,
         due_date: args.due_date,
         assignee_id: args.assignee_id,
+        assignee_ids: args.assignee_ids,
         position: colTasks.length
       })
+      // Resolve assignee profile shapes for the optimistic card so the
+      // avatar group renders immediately (createTask returns the
+      // primary as `assignee` only).
+      const ids = (args.assignee_ids ?? (args.assignee_id ? [args.assignee_id] : [])).filter(Boolean)
+      const optimisticAssignees = ids.map(id => profiles.find(p => p.id === id)).filter(Boolean)
       setTasks(arr => [...arr, {
         ...created,
+        assignees: optimisticAssignees,
         labels: [],
         comment_count: 0, checklist_total: 0, checklist_done: 0, attachment_count: 0
       }])
@@ -285,6 +319,16 @@ export default function BoardPage() {
   }
 
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>
+  if (!project) {
+    return (
+      <EmptyState
+        icon={Plus}
+        title="Project not found"
+        description={`No project matches the URL "${slug}". It may have been renamed (which changes the slug) or deleted.`}
+        action={<Link to="/projects"><Button leftIcon={<ArrowLeft className="w-4 h-4" />}>Back to projects</Button></Link>}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">

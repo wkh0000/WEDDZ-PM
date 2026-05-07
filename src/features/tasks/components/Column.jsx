@@ -7,6 +7,7 @@ import {
   Flag, User, CalendarDays, Sparkles
 } from 'lucide-react'
 import TaskCard from './TaskCard'
+import AssigneePicker from './AssigneePicker'
 import DropdownMenu from '@/components/ui/DropdownMenu'
 import Avatar from '@/components/ui/Avatar'
 import { cn } from '@/lib/cn'
@@ -37,15 +38,15 @@ export default function Column({
     transition: transition || undefined
   }
 
-  const [adding, setAdding]       = useState(false)
-  const [draftTitle, setTitle]    = useState('')
-  const [draftPri, setPri]        = useState('medium')
-  const [draftDue, setDue]        = useState('')
-  const [draftAssignee, setAssg]  = useState('')
-  const [renaming, setRenaming]   = useState(false)
-  const [renameValue, setRename]  = useState(column.name)
+  const [adding, setAdding]         = useState(false)
+  const [draftTitle, setTitle]      = useState('')
+  const [draftPri, setPri]          = useState('medium')
+  const [draftDue, setDue]          = useState('')
+  const [draftAssignees, setAssgs]  = useState(/** @type {string[]} */ ([]))
+  const [renaming, setRenaming]     = useState(false)
+  const [renameValue, setRename]    = useState(column.name)
 
-  function reset() { setTitle(''); setPri('medium'); setDue(''); setAssg(''); setAdding(false) }
+  function reset() { setTitle(''); setPri('medium'); setDue(''); setAssgs([]); setAdding(false) }
 
   function submitAdd(e) {
     e?.preventDefault()
@@ -55,7 +56,10 @@ export default function Column({
       title: v,
       priority: draftPri,
       due_date: draftDue || null,
-      assignee_id: draftAssignee || null
+      // Pass both for forward-compat: assignee_id is the primary, the
+      // array is what gets mirrored into task_assignees.
+      assignee_ids: draftAssignees,
+      assignee_id: draftAssignees[0] || null
     })
     reset()
   }
@@ -189,16 +193,12 @@ export default function Column({
               <label className="flex items-center gap-1 text-[10px] text-zinc-400 uppercase tracking-wider ml-2">
                 <User className="w-3 h-3" />
               </label>
-              <select
-                value={draftAssignee}
-                onChange={e => setAssg(e.target.value)}
-                className="bg-white/[0.05] border border-white/10 rounded px-1.5 h-6 text-[11px] text-zinc-200 focus:outline-none focus:border-indigo-400/60 max-w-[140px]"
-              >
-                <option value="">Unassigned</option>
-                {profiles.map(p => (
-                  <option key={p.id} value={p.id} className="bg-zinc-900">{p.full_name || p.email}</option>
-                ))}
-              </select>
+              <AssigneePicker
+                compact
+                profiles={profiles}
+                value={draftAssignees}
+                onChange={setAssgs}
+              />
             </div>
             <div className="flex items-center justify-between gap-1 pt-1">
               <span className="text-[10px] text-zinc-500">Enter to add · Esc to cancel</span>

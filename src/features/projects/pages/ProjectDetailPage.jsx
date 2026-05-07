@@ -42,6 +42,8 @@ export default function ProjectDetailPage() {
     try {
       // Backwards-compat: if the URL param looks like a UUID, fall back
       // to id-lookup and immediately replace with the canonical slug URL.
+      // `getProjectBySlug` returns null (not 406) on unknown slug → fall
+      // through to the not-found UI below instead of throwing.
       let p
       if (isUuid(slug)) {
         p = await getProject(slug)
@@ -49,6 +51,7 @@ export default function ProjectDetailPage() {
       } else {
         p = await getProjectBySlug(slug)
       }
+      if (!p) { setProject(null); setInvoices([]); setExpenses([]); return }
       const [inv, exp] = await Promise.all([
         listProjectInvoices(p.id),
         listProjectExpenses(p.id)

@@ -1,4 +1,4 @@
-import { CalendarClock, AlertOctagon, UserX, UserCheck, CheckSquare, X, Search } from 'lucide-react'
+import { CalendarClock, AlertOctagon, UserX, UserCheck, CheckSquare, X, Search, FilterX, Archive } from 'lucide-react'
 import Avatar from '@/components/ui/Avatar'
 import { cn } from '@/lib/cn'
 
@@ -14,7 +14,8 @@ const SMART = [
   { id: 'this_week',   label: 'Due this week', icon: CalendarClock, tone: 'amber' },
   { id: 'unassigned',  label: 'Unassigned',    icon: UserX,        tone: 'zinc' },
   { id: 'mine',        label: 'Assigned to me',icon: UserCheck,    tone: 'indigo' },
-  { id: 'completed',   label: 'Completed',     icon: CheckSquare,  tone: 'emerald' }
+  { id: 'completed',   label: 'Completed',     icon: CheckSquare,  tone: 'emerald' },
+  { id: 'archived',    label: 'Archived',      icon: Archive,      tone: 'violet' }
 ]
 
 const TONE_CHIP = {
@@ -22,21 +23,31 @@ const TONE_CHIP = {
   amber:   'bg-amber-500/15 text-amber-200 border-amber-500/30',
   zinc:    'bg-zinc-500/15 text-zinc-200 border-zinc-500/30',
   indigo:  'bg-indigo-500/15 text-indigo-200 border-indigo-500/30',
-  emerald: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30'
+  emerald: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30',
+  violet:  'bg-violet-500/15 text-violet-200 border-violet-500/30'
 }
 
 export default function BoardSmartFilters({ filters, setFilters, profiles, labels, search, setSearch, density, setDensity }) {
-  const hasFilter = Object.values(filters).some(v => v != null) || !!search
+  const activeCount =
+    Object.values(filters).filter(v => v != null).length + (search.trim() ? 1 : 0)
+  const hasFilter = activeCount > 0
 
   function toggleSmart(id) {
     setFilters(f => ({ ...f, smart: f.smart === id ? null : id }))
   }
 
+  function resetAll() {
+    setFilters({ assignee: null, priority: null, label: null, smart: null })
+    setSearch('')
+  }
+
   return (
     <div className="space-y-2.5">
-      {/* Row 1: search + density + clear */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-md">
+      {/* Row 1: search + density + clear. flex-wrap so the density
+          toggle + Reset button stack below the search box on phones
+          instead of getting clipped off-screen. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[180px] max-w-md">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
           <input
             value={search}
@@ -57,14 +68,25 @@ export default function BoardSmartFilters({ filters, setFilters, profiles, label
             title="Compact density"
           >Compact</button>
         </div>
-        {hasFilter && (
-          <button
-            onClick={() => { setFilters({ assignee: null, priority: null, label: null, smart: null }); setSearch('') }}
-            className="text-xs text-zinc-400 hover:text-zinc-200 inline-flex items-center gap-1 px-2 h-7 rounded-md border border-white/10 hover:border-white/20"
-          >
-            <X className="w-3 h-3" /> Clear
-          </button>
-        )}
+        <button
+          onClick={resetAll}
+          disabled={!hasFilter}
+          title={hasFilter ? `Reset ${activeCount} active filter${activeCount === 1 ? '' : 's'}` : 'No filters active'}
+          className={cn(
+            'text-xs inline-flex items-center gap-1.5 px-2.5 h-8 rounded-lg border transition-colors',
+            hasFilter
+              ? 'text-zinc-200 bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/15 hover:border-rose-500/40'
+              : 'text-zinc-600 bg-white/[0.02] border-white/10 cursor-not-allowed'
+          )}
+        >
+          <FilterX className="w-3.5 h-3.5" />
+          Reset filters
+          {hasFilter && (
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold bg-rose-500/30 text-rose-100 tabular-nums">
+              {activeCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Row 2: smart filters */}

@@ -41,6 +41,7 @@ export default function EmployeeDetailPage() {
       } else {
         e = await getEmployeeBySlug(slug)
       }
+      if (!e) { setEmployee(null); setSalaries([]); return }
       const s = await listEmployeeSalaries(e.id)
       setEmployee(e); setSalaries(s)
     } catch (err) {

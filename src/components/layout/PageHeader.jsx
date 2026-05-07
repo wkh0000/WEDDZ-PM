@@ -14,7 +14,7 @@ export default function PageHeader({ title, description, actions, className, bre
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100">{title}</h1>
         {description && <p className="text-sm text-zinc-400 mt-1.5 max-w-2xl">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
     </div>
   )
 }

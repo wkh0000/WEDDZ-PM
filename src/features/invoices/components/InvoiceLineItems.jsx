@@ -24,7 +24,11 @@ export default function InvoiceLineItems({ items, onChange, taxRate, onTaxRateCh
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-white/10 overflow-hidden">
-        <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-white/[0.04] text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+        {/* Outer scroll wrapper — keeps the 12-col grid usable on
+            phones without collapsing the schema. min-w on rows sets
+            the breakpoint where horizontal scroll kicks in. */}
+        <div className="overflow-x-auto">
+        <div className="min-w-[480px] grid grid-cols-12 gap-2 px-3 py-2 bg-white/[0.04] text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
           <div className="col-span-6">Description</div>
           <div className="col-span-2 text-right">Qty</div>
           <div className="col-span-2 text-right">Unit price</div>
@@ -35,7 +39,7 @@ export default function InvoiceLineItems({ items, onChange, taxRate, onTaxRateCh
             <div className="px-3 py-6 text-center text-sm text-zinc-500">No items yet. Add one below.</div>
           )}
           {items.map((it, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 items-center">
+            <div key={i} className="min-w-[480px] grid grid-cols-12 gap-2 px-3 py-2 items-center">
               <input
                 disabled={readOnly}
                 value={it.description ?? ''}
@@ -67,6 +71,7 @@ export default function InvoiceLineItems({ items, onChange, taxRate, onTaxRateCh
               </div>
             </div>
           ))}
+        </div>
         </div>
       </div>
       {!readOnly && (

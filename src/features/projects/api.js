@@ -30,15 +30,18 @@ export async function getProject(id) {
 }
 
 /**
- * Lookup by slug (e.g. 'onscene-event-web'). Used by the detail
- * page when reading the slug from the URL.
+ * Lookup by slug (e.g. 'onscene'). Used by the detail page when reading
+ * the slug from the URL. Returns `null` if the slug doesn't match a row
+ * — callers should render a "not found" state in that case. We use
+ * `.maybeSingle()` (not `.single()`) so a missing row returns null
+ * instead of a 406 from PostgREST.
  */
 export async function getProjectBySlug(slug) {
   const { data, error } = await supabase
     .from('projects')
     .select('*, customer:customers(id,slug,name,company,email)')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
   if (error) throw error
   return data
 }

@@ -57,7 +57,7 @@ export default function InsightsPage() {
         <div className="flex justify-center py-20"><Spinner size="lg" /></div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard icon={Wallet} tone="emerald" label="Revenue (12mo)" value={formatLKRCompact(totalRevenue)} />
             <StatCard icon={Wallet} tone="rose"    label="Expenses (12mo)" value={formatLKRCompact(totalExpenses)} />
             <StatCard

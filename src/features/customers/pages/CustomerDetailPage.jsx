@@ -45,6 +45,7 @@ export default function CustomerDetailPage() {
       } else {
         c = await getCustomerBySlug(slug)
       }
+      if (!c) { setCustomer(null); setProjects([]); setInvoices([]); return }
       const [ps, inv] = await Promise.all([
         listCustomerProjects(c.id),
         listCustomerInvoices(c.id)

@@ -21,15 +21,17 @@ export async function getCustomer(id) {
 }
 
 /**
- * Lookup by slug (e.g. 'mr-saniru'). Used by the customer detail
- * page when reading the slug from the URL.
+ * Lookup by slug (e.g. 'mr-saniru'). Used by the customer detail page
+ * when reading the slug from the URL. Returns `null` if no row matches —
+ * `.maybeSingle()` (not `.single()`) so PostgREST returns null instead
+ * of 406 on zero rows.
  */
 export async function getCustomerBySlug(slug) {
   const { data, error } = await supabase
     .from('customers')
     .select('*')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
   if (error) throw error
   return data
 }

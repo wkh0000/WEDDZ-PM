@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trash2, Calendar, Flag, User, Tag, MessageSquare, CheckSquare, Paperclip, Activity } from 'lucide-react'
+import { Trash2, Calendar, Flag, User, Tag, MessageSquare, CheckSquare, Paperclip, Activity, Archive, ArchiveRestore } from 'lucide-react'
 import Drawer from '@/components/ui/Drawer'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -12,8 +12,10 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useToast } from '@/context/ToastContext'
 import {
-  updateTask, deleteTask, listLabels, attachLabel, detachLabel
+  updateTask, deleteTask, listLabels, attachLabel, detachLabel, setTaskAssignees,
+  archiveTask, unarchiveTask
 } from '../api'
+import AssigneePicker from './AssigneePicker'
 import TaskCommentsThread from './TaskCommentsThread'
 import TaskChecklist from './TaskChecklist'
 import TaskAttachments from './TaskAttachments'
@@ -27,6 +29,7 @@ export default function TaskDetailDrawer({ open, onClose, task, projectId, profi
   const [savingField, setSavingField] = useState(false)
   const [allLabels, setAllLabels] = useState([])
   const [busyDelete, setBusyDelete] = useState(false)
+  const [busyArchive, setBusyArchive] = useState(false)
 
   useEffect(() => {
     if (task) setDraft(task)
@@ -62,6 +65,22 @@ export default function TaskDetailDrawer({ open, onClose, task, projectId, profi
     }
   }
 
+  async function onArchiveToggle() {
+    setBusyArchive(true)
+    try {
+      const updated = draft.archived_at
+        ? await unarchiveTask(task.id)
+        : await archiveTask(task.id)
+      setDraft(d => ({ ...d, ...updated }))
+      onUpdated?.(updated)
+      toast.success(draft.archived_at ? 'Task restored' : 'Task archived')
+    } catch (err) {
+      toast.error(err.message || 'Archive failed')
+    } finally {
+      setBusyArchive(false)
+    }
+  }
+
   async function toggleLabel(label, on) {
     try {
       if (on) await attachLabel(task.id, label.id)
@@ -82,12 +101,28 @@ export default function TaskDetailDrawer({ open, onClose, task, projectId, profi
         title={null}
         width="lg"
         footer={
-          <Button variant="danger" leftIcon={<Trash2 className="w-4 h-4" />} onClick={confirm.onOpen}>
-            Delete task
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 w-full justify-end">
+            <Button
+              variant="subtle"
+              leftIcon={draft.archived_at ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+              onClick={onArchiveToggle}
+              loading={busyArchive}
+            >
+              {draft.archived_at ? 'Restore' : 'Archive'}
+            </Button>
+            <Button variant="danger" leftIcon={<Trash2 className="w-4 h-4" />} onClick={confirm.onOpen}>
+              Delete
+            </Button>
+          </div>
         }
       >
         <div className="px-6 py-5 space-y-5">
+          {draft.archived_at && (
+            <div className="-mt-1 inline-flex items-center gap-1.5 h-6 px-2 rounded-full text-[11px] font-medium border bg-violet-500/15 text-violet-200 border-violet-500/30">
+              <Archive className="w-3 h-3" />
+              Archived
+            </div>
+          )}
           {/* Title */}
           <div>
             <input
@@ -99,13 +134,21 @@ export default function TaskDetailDrawer({ open, onClose, task, projectId, profi
 
           {/* Meta grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Select
-              label="Assignee"
-              leftIcon={<User className="w-4 h-4" />}
-              value={draft.assignee_id ?? ''}
-              onChange={e => save('assignee_id', e.target.value || null)}
-              options={profiles.map(p => ({ value: p.id, label: p.full_name || p.email }))}
-              placeholder="Unassigned"
+            <AssigneePicker
+              label="Assignees"
+              profiles={profiles}
+              value={(draft.assignees ?? []).map(a => a.id)}
+              onChange={async ids => {
+                // Optimistic — drawer state updates instantly so the
+                // picker re-renders with the new chips, even before
+                // the network round-trip completes.
+                const next = ids.map(id => profiles.find(p => p.id === id)).filter(Boolean)
+                setDraft(d => ({ ...d, assignees: next, assignee_id: ids[0] ?? null, assignee: next[0] ?? null }))
+                try {
+                  const updated = await setTaskAssignees(task.id, ids)
+                  onUpdated?.({ ...updated, assignees: next })
+                } catch (e) { toast.error(e.message || 'Assignee update failed') }
+              }}
             />
             <Select
               label="Priority"

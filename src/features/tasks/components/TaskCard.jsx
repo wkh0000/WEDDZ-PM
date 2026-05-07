@@ -1,7 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Calendar, MessageSquare, CheckSquare, Paperclip, MoreHorizontal, GripVertical, AlertCircle } from 'lucide-react'
+import { Calendar, MessageSquare, CheckSquare, Paperclip, MoreHorizontal, GripVertical, AlertCircle, Archive } from 'lucide-react'
 import Avatar from '@/components/ui/Avatar'
+import AvatarGroup from '@/components/ui/AvatarGroup'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -45,6 +46,7 @@ export default function TaskCard({ task, onClick, onQuickAction, isOverlay = fal
   }
 
   const completed = !!task.completed_at
+  const archived  = !!task.archived_at
   const due = dueStatus(task.due_date, completed)
   const pri = priorityStyle[task.priority] ?? priorityStyle.medium
   const total = task.checklist_total ?? 0
@@ -57,31 +59,35 @@ export default function TaskCard({ task, onClick, onQuickAction, isOverlay = fal
     <div
       ref={setNodeRef}
       style={style}
+      // Drag listeners on the whole card so users don't have to find a
+      // hover-only grip (post-v2 regression). PointerSensor's
+      // activationConstraint distance:6 in BoardPage means short clicks
+      // stay clicks — only ≥6px of motion starts a drag.
+      {...attributes}
+      {...listeners}
       onClick={(e) => {
-        // ignore drags + clicks on the drag handle / hover-action button
+        // ignore drags + clicks on the hover-action button
         if (isDragging) return
         if (e.target?.closest?.('[data-no-card-click]')) return
         onClick?.()
       }}
       className={cn(
-        'group relative glass rounded-xl select-none transition-all',
+        'group relative glass rounded-xl select-none transition-all cursor-grab active:cursor-grabbing',
         'hover:border-white/20 hover:bg-white/[0.06]',
         completed && 'opacity-70',
+        archived && 'opacity-60 border-violet-500/30 bg-violet-500/[0.04]',
         isDragging && 'opacity-30',
         isOverlay && 'shadow-glow rotate-1 scale-[1.02] border-indigo-400/40'
       )}
     >
-      {/* Drag handle (top-left) — explicit so we don't drag from anywhere */}
-      <button
-        {...attributes}
-        {...listeners}
-        data-no-card-click
-        className="absolute top-2 left-1.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab active:cursor-grabbing text-zinc-500 hover:text-zinc-200 transition-opacity p-0.5 z-10"
-        aria-label="Drag to reorder"
-        onClick={(e) => e.stopPropagation()}
+      {/* Drag-handle indicator — visual only; the whole card is the drag
+          source so the icon's just a hint that the card is movable. */}
+      <div
+        className="absolute top-2 left-1.5 opacity-30 group-hover:opacity-90 text-zinc-500 transition-opacity p-0.5 z-10 pointer-events-none"
+        aria-hidden="true"
       >
         <GripVertical className="w-3.5 h-3.5" />
-      </button>
+      </div>
 
       {/* Quick actions (top-right) */}
       {onQuickAction && (
@@ -128,12 +134,18 @@ export default function TaskCard({ task, onClick, onQuickAction, isOverlay = fal
           </div>
         )}
 
-        {/* Title */}
+        {/* Title (with archived pill if applicable) */}
         <div className={cn(
           'text-zinc-100 font-medium leading-snug',
           isCompact ? 'text-sm line-clamp-1' : 'text-sm line-clamp-3',
           completed && 'line-through text-zinc-400'
         )}>
+          {archived && (
+            <span className="inline-flex items-center gap-1 mr-1.5 px-1.5 h-4 rounded text-[9px] font-semibold uppercase tracking-wider align-middle bg-violet-500/15 text-violet-200 border border-violet-500/30">
+              <Archive className="w-2.5 h-2.5" />
+              Archived
+            </span>
+          )}
           {task.title}
         </div>
 
@@ -188,10 +200,13 @@ export default function TaskCard({ task, onClick, onQuickAction, isOverlay = fal
             )}
           </div>
 
-          {/* Assignee avatar */}
-          {task.assignee && (
-            <Avatar name={task.assignee.full_name} src={task.assignee.avatar_url} size="xs" />
-          )}
+          {/* Assignees — stacked avatars with +N overflow. Falls back to
+              the legacy single `assignee` for tasks that haven't been
+              normalized into the join table yet. */}
+          {task.assignees?.length > 0
+            ? <AvatarGroup items={task.assignees} max={3} size="xs" />
+            : task.assignee && <Avatar name={task.assignee.full_name} src={task.assignee.avatar_url} size="xs" />
+          }
         </div>
       </div>
     </div>

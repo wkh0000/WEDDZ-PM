@@ -124,7 +124,10 @@ export default function InvoiceDetailPage() {
           </div>
 
           <div className="rounded-xl border border-white/10 overflow-hidden mt-4">
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-white/[0.04] text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+            {/* Horizontal scroll on narrow viewports — preserves the
+                4-col schema without stacking values weirdly. */}
+            <div className="overflow-x-auto">
+            <div className="min-w-[480px] grid grid-cols-12 gap-2 px-3 py-2 bg-white/[0.04] text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
               <div className="col-span-6">Description</div>
               <div className="col-span-2 text-right">Qty</div>
               <div className="col-span-2 text-right">Unit price</div>
@@ -132,7 +135,7 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="divide-y divide-white/5">
               {items.map(it => (
-                <div key={it.id} className="grid grid-cols-12 gap-2 px-3 py-2.5 text-sm">
+                <div key={it.id} className="min-w-[480px] grid grid-cols-12 gap-2 px-3 py-2.5 text-sm">
                   <div className="col-span-6 text-zinc-100">{it.description}</div>
                   <div className="col-span-2 text-right text-zinc-300 tabular-nums">{Number(it.quantity).toLocaleString()}</div>
                   <div className="col-span-2 text-right text-zinc-300 tabular-nums">{formatLKR(it.unit_price)}</div>
@@ -142,6 +145,7 @@ export default function InvoiceDetailPage() {
               {items.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-zinc-500">No line items</div>
               )}
+            </div>
             </div>
           </div>
 
