@@ -24,14 +24,17 @@ import {
 import Column from '../components/Column'
 import TaskCard from '../components/TaskCard'
 import TaskDetailDrawer from '../components/TaskDetailDrawer'
-import BoardFilters from '../components/BoardFilters'
+import BoardSmartFilters from '../components/BoardSmartFilters'
 import { useBoardRealtime } from '../hooks/useBoardRealtime'
+import { useAuth } from '@/context/AuthContext'
 
 const LABEL_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9', '#ec4899', '#84cc16']
+const DENSITY_KEY = 'weddzpm.board.density'
 
 export default function BoardPage() {
   const { id: projectId } = useParams()
   const toast = useToast()
+  const { user } = useAuth()
   const taskDrawer = useDisclosure()
   const labelsModal = useDisclosure()
   const [project, setProject] = useState(null)
@@ -42,7 +45,12 @@ export default function BoardPage() {
   const [loading, setLoading] = useState(true)
   const [activeTask, setActiveTask] = useState(null)
   const [selectedTask, setSelectedTask] = useState(null)
-  const [filters, setFilters] = useState({ assignee: null, priority: null, label: null })
+  const [filters, setFilters] = useState({ assignee: null, priority: null, label: null, smart: null })
+  const [search, setSearch] = useState('')
+  const [density, setDensityRaw] = useState(() => {
+    try { return localStorage.getItem(DENSITY_KEY) || 'comfortable' } catch { return 'comfortable' }
+  })
+  const setDensity = (d) => { setDensityRaw(d); try { localStorage.setItem(DENSITY_KEY, d) } catch {} }
   const reloadingRef = useRef(false)
 
   const sensors = useSensors(
@@ -80,8 +88,36 @@ export default function BoardPage() {
     if (filters.assignee) arr = arr.filter(t => t.assignee_id === filters.assignee)
     if (filters.priority) arr = arr.filter(t => t.priority === filters.priority)
     if (filters.label)    arr = arr.filter(t => t.labels?.some(l => l.id === filters.label))
+
+    if (filters.smart) {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7)
+      const fmt = d => d.toISOString().slice(0, 10)
+      const todayStr = fmt(today)
+      const weekEndStr = fmt(weekEnd)
+      if (filters.smart === 'overdue') {
+        arr = arr.filter(t => t.due_date && t.due_date < todayStr && !t.completed_at)
+      } else if (filters.smart === 'this_week') {
+        arr = arr.filter(t => t.due_date && t.due_date >= todayStr && t.due_date <= weekEndStr && !t.completed_at)
+      } else if (filters.smart === 'unassigned') {
+        arr = arr.filter(t => !t.assignee_id)
+      } else if (filters.smart === 'mine') {
+        arr = arr.filter(t => t.assignee_id === user?.id)
+      } else if (filters.smart === 'completed') {
+        arr = arr.filter(t => !!t.completed_at)
+      }
+    }
+
+    const q = search.trim().toLowerCase()
+    if (q) {
+      arr = arr.filter(t =>
+        t.title?.toLowerCase().includes(q) ||
+        t.description?.toLowerCase().includes(q)
+      )
+    }
+
     return arr
-  }, [tasks, filters])
+  }, [tasks, filters, search, user])
 
   const tasksByColumn = useMemo(() => {
     const map = {}
@@ -159,12 +195,29 @@ export default function BoardPage() {
   }
 
   // ---- Column actions
-  async function onAddTaskToColumn(columnId, title) {
+  async function onAddTaskToColumn(columnId, payload) {
     const colTasks = tasksByColumn[columnId] ?? []
+    const args = typeof payload === 'string' ? { title: payload } : (payload ?? {})
     try {
-      const created = await createTask({ projectId, columnId, title, position: colTasks.length })
-      setTasks(arr => [...arr, { ...created, labels: [] }])
+      const created = await createTask({
+        projectId, columnId,
+        title: args.title,
+        priority: args.priority,
+        due_date: args.due_date,
+        assignee_id: args.assignee_id,
+        position: colTasks.length
+      })
+      setTasks(arr => [...arr, {
+        ...created,
+        labels: [],
+        comment_count: 0, checklist_total: 0, checklist_done: 0, attachment_count: 0
+      }])
     } catch (err) { toast.error(err.message) }
+  }
+
+  function onQuickAction(task) {
+    setSelectedTask(task)
+    taskDrawer.onOpen()
   }
 
   const newColDisc = useDisclosure()
@@ -238,7 +291,16 @@ export default function BoardPage() {
         }
       />
 
-      <BoardFilters filters={filters} setFilters={setFilters} profiles={profiles} labels={labels} />
+      <BoardSmartFilters
+        filters={filters}
+        setFilters={setFilters}
+        profiles={profiles}
+        labels={labels}
+        search={search}
+        setSearch={setSearch}
+        density={density}
+        setDensity={setDensity}
+      />
 
       {columns.length === 0 ? (
         <EmptyState
@@ -262,8 +324,11 @@ export default function BoardPage() {
                     key={col.id}
                     column={col}
                     tasks={tasksByColumn[col.id] ?? []}
-                    onAddTask={(title) => onAddTaskToColumn(col.id, title)}
+                    profiles={profiles}
+                    density={density}
+                    onAddTask={(payload) => onAddTaskToColumn(col.id, payload)}
                     onTaskClick={(task) => { setSelectedTask(task); taskDrawer.onOpen() }}
+                    onQuickAction={onQuickAction}
                     onRenameColumn={(name) => onRenameCol(col, name)}
                     onDeleteColumn={() => onDeleteCol(col)}
                   />
@@ -272,7 +337,7 @@ export default function BoardPage() {
             </SortableContext>
           </div>
           <DragOverlay>
-            {activeTask ? <TaskCard task={activeTask} isOverlay /> : null}
+            {activeTask ? <TaskCard task={activeTask} density={density} isOverlay /> : null}
           </DragOverlay>
         </DndContext>
       )}
