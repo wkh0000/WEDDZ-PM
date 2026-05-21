@@ -126,6 +126,57 @@ export async function unpaySalary(id) {
   if (error) throw error
 }
 
+// ---------- Salary advances ----------
+//
+// Advances are money paid to an employee before payday. Giving one logs
+// a `Salary` expense immediately (cash out now); when that employee's
+// salary is next paid, outstanding advances are auto-settled into the
+// salary's deductions by the pay_salary RPC. See migration 010.
+
+/** List advances, newest first. Optional filters: { employeeId, status }. */
+export async function listAdvances({ employeeId, status } = {}) {
+  let q = supabase
+    .from('salary_advances')
+    .select('*, employee:employees(id,full_name,role,active)')
+    .order('advance_date', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (employeeId) q = q.eq('employee_id', employeeId)
+  if (status)     q = q.eq('status', status)
+  const { data, error } = await q
+  if (error) throw error
+  return data
+}
+
+/** Record an advance. Creates the linked cash-out expense server-side. */
+export async function giveAdvance({ employee_id, amount, advance_date, notes }) {
+  const { data, error } = await supabase.rpc('give_salary_advance', {
+    p_employee_id: employee_id,
+    p_amount: Number(amount),
+    p_advance_date: advance_date || null,
+    p_notes: notes ?? null
+  })
+  if (error) throw error
+  return data // new advance id
+}
+
+/** Cancel an outstanding advance — reverses its expense. Fails if settled. */
+export async function cancelAdvance(id) {
+  const { error } = await supabase.rpc('cancel_salary_advance', { p_advance_id: id })
+  if (error) throw error
+}
+
+/** { [employee_id]: totalOutstanding } — used to show per-row "will be deducted" hints. */
+export async function outstandingAdvanceTotals() {
+  const { data, error } = await supabase
+    .from('salary_advances')
+    .select('employee_id, amount')
+    .eq('status', 'outstanding')
+  if (error) throw error
+  const map = {}
+  for (const r of data ?? []) map[r.employee_id] = (map[r.employee_id] ?? 0) + Number(r.amount ?? 0)
+  return map
+}
+
 /**
  * Generate "pending" salary rows for every active employee for the given period
  * who doesn't already have one. Returns the created rows.
