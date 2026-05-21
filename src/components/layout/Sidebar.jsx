@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FolderKanban, FileText, Receipt,
-  UserCog, BarChart3, Shield, Sparkles, Database, ArrowDownUp
+  UserCog, BarChart3, Shield, Sparkles, Database, ArrowDownUp, Wallet
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/context/AuthContext'
@@ -20,7 +20,11 @@ function buildNav(isSuperAdmin) {
     { to: '/insights',    label: 'Insights',  icon: BarChart3 }
   ]
   if (isSuperAdmin) {
-    nav.splice(5, 0, { to: '/employees', label: 'Employees', icon: UserCog })
+    // HR pair, inserted after Expenses.
+    nav.splice(5, 0,
+      { to: '/employees', label: 'Employees', icon: UserCog },
+      { to: '/salaries',  label: 'Salaries',  icon: Wallet }
+    )
     nav.push({ to: '/admin/users',   label: 'Team Members', icon: Shield,   group: 'admin' })
     nav.push({ to: '/admin/backups', label: 'Backups',      icon: Database, group: 'admin' })
   }
