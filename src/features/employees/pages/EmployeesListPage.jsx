@@ -9,12 +9,13 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import Spinner from '@/components/ui/Spinner'
 import DropdownMenu from '@/components/ui/DropdownMenu'
+import DownloadPdfButton from '@/components/ui/DownloadPdfButton'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useToast } from '@/context/ToastContext'
-import { formatLKR, formatDate } from '@/lib/format'
+import { formatLKR, formatDate, formatNumber } from '@/lib/format'
 import { listEmployees, deleteEmployee, EMPLOYMENT_TYPES } from '../api'
 import EmployeeFormModal from '../components/EmployeeFormModal'
 
@@ -79,6 +80,29 @@ export default function EmployeesListPage() {
         actions={
           <>
             <Link to="/salaries"><Button variant="subtle">Salaries →</Button></Link>
+            <DownloadPdfButton
+              disabled={loading || filtered.length === 0}
+              data={() => ({
+                title: 'Employees',
+                subtitle: `${filtered.length} ${filtered.length === 1 ? 'employee' : 'employees'}`,
+                columns: [
+                  { header: 'Name', dataKey: 'name' },
+                  { header: 'Role', dataKey: 'role' },
+                  { header: 'Type', dataKey: 'type' },
+                  { header: 'Base salary (LKR)', dataKey: 'base', align: 'right' },
+                  { header: 'Joined', dataKey: 'joined' },
+                  { header: 'Status', dataKey: 'status' }
+                ],
+                rows: filtered.map(e => ({
+                  name: e.full_name,
+                  role: e.role || '—',
+                  type: labelOf(e.employment_type),
+                  base: formatNumber(e.base_salary),
+                  joined: formatDate(e.joined_on),
+                  status: e.active ? 'Active' : 'Inactive'
+                }))
+              })}
+            />
             <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add employee</Button>
           </>
         }

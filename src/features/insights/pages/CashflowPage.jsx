@@ -6,8 +6,9 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import Spinner from '@/components/ui/Spinner'
 import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
+import DownloadPdfButton from '@/components/ui/DownloadPdfButton'
 import { useToast } from '@/context/ToastContext'
-import { formatLKR, formatDate } from '@/lib/format'
+import { formatLKR, formatDate, formatNumber } from '@/lib/format'
 import { cashflowLedger } from '../api'
 import { cn } from '@/lib/cn'
 
@@ -44,6 +45,37 @@ export default function CashflowPage() {
       <PageHeader
         title="Cashflow"
         description="Every cash movement since day one — invoices paid in, expenses paid out, and the running balance."
+        actions={
+          <DownloadPdfButton
+            disabled={loading || rows.length === 0}
+            data={() => ({
+              title: 'Cashflow',
+              subtitle: `Money in ${formatLKR(data.totalIn)}  ·  Money out ${formatLKR(data.totalOut)}  ·  Current balance ${formatLKR(data.balance)}`,
+              orientation: 'landscape',
+              columns: [
+                { header: 'Date', dataKey: 'date' },
+                { header: 'Description', dataKey: 'desc' },
+                { header: 'Category', dataKey: 'cat' },
+                { header: 'In (LKR)', dataKey: 'cin', align: 'right' },
+                { header: 'Out (LKR)', dataKey: 'cout', align: 'right' },
+                { header: 'Balance (LKR)', dataKey: 'bal', align: 'right' }
+              ],
+              rows: rows.map(e => ({
+                date: formatDate(e.date),
+                desc: e.label,
+                cat: e.category,
+                cin: e.direction === 'in' ? formatNumber(e.amount) : '',
+                cout: e.direction === 'out' ? formatNumber(e.amount) : '',
+                bal: formatNumber(e.balance)
+              })),
+              summary: [
+                { label: 'Money in', value: formatLKR(data.totalIn) },
+                { label: 'Money out', value: formatLKR(data.totalOut) },
+                { label: 'Current balance', value: formatLKR(data.balance) }
+              ]
+            })}
+          />
+        }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

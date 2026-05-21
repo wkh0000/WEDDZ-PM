@@ -16,6 +16,17 @@ export function formatLKR(value) {
 }
 
 /**
+ * Plain comma-grouped number, no currency prefix. For PDF/table amount
+ * columns where "LKR" lives in the header instead of every cell.
+ * @example formatNumber(125000) => "125,000.00"
+ */
+export function formatNumber(value) {
+  const n = Number(value ?? 0)
+  if (!Number.isFinite(n)) return '0.00'
+  return n.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/**
  * Compact LKR for stat cards: 1.2M, 450K, 1.5B.
  */
 export function formatLKRCompact(value) {

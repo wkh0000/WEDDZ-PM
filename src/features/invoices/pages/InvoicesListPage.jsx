@@ -7,12 +7,13 @@ import Input from '@/components/ui/Input'
 import EmptyState from '@/components/ui/EmptyState'
 import Spinner from '@/components/ui/Spinner'
 import DropdownMenu from '@/components/ui/DropdownMenu'
+import DownloadPdfButton from '@/components/ui/DownloadPdfButton'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useToast } from '@/context/ToastContext'
-import { formatLKR, formatDate } from '@/lib/format'
+import { formatLKR, formatDate, formatNumber } from '@/lib/format'
 import { listInvoices, deleteInvoice, markInvoicePaid } from '../api'
 import InvoiceFormModal from '../components/InvoiceFormModal'
 import { invoiceStatusBadge, INVOICE_STATUSES } from '../components/InvoiceStatusBadge'
@@ -93,7 +94,39 @@ export default function InvoicesListPage() {
       <PageHeader
         title="Invoices"
         description="Auto-numbered. Mark as paid creates the audit trail."
-        actions={<Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>New invoice</Button>}
+        actions={
+          <>
+            <DownloadPdfButton
+              disabled={loading || filtered.length === 0}
+              data={() => ({
+                title: 'Invoices',
+                subtitle: statusFilter === 'all' ? 'All invoices' : `Status: ${statusFilter}`,
+                columns: [
+                  { header: 'Number', dataKey: 'no' },
+                  { header: 'Customer', dataKey: 'customer' },
+                  { header: 'Status', dataKey: 'status' },
+                  { header: 'Total (LKR)', dataKey: 'total', align: 'right' },
+                  { header: 'Issued', dataKey: 'issued' },
+                  { header: 'Due', dataKey: 'due' }
+                ],
+                rows: filtered.map(i => ({
+                  no: i.invoice_no,
+                  customer: i.customer?.company || i.customer?.name || '—',
+                  status: (i.status || '').toUpperCase(),
+                  total: formatNumber(i.total),
+                  issued: formatDate(i.issue_date),
+                  due: formatDate(i.due_date)
+                })),
+                summary: [
+                  { label: 'Filtered total', value: formatLKR(totals.total) },
+                  { label: 'Unpaid', value: formatLKR(totals.unpaid) },
+                  { label: 'Paid', value: formatLKR(totals.paid) }
+                ]
+              })}
+            />
+            <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>New invoice</Button>
+          </>
+        }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

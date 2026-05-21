@@ -7,6 +7,7 @@ import Input from '@/components/ui/Input'
 import EmptyState from '@/components/ui/EmptyState'
 import Spinner from '@/components/ui/Spinner'
 import DropdownMenu from '@/components/ui/DropdownMenu'
+import DownloadPdfButton from '@/components/ui/DownloadPdfButton'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
@@ -72,7 +73,32 @@ export default function CustomersListPage() {
       <PageHeader
         title="Customers"
         description="People and companies you do work for."
-        actions={<Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add customer</Button>}
+        actions={
+          <>
+            <DownloadPdfButton
+              disabled={loading || filtered.length === 0}
+              data={() => ({
+                title: 'Customers',
+                subtitle: `${filtered.length} ${filtered.length === 1 ? 'customer' : 'customers'}`,
+                columns: [
+                  { header: 'Name', dataKey: 'name' },
+                  { header: 'Company', dataKey: 'company' },
+                  { header: 'Email', dataKey: 'email' },
+                  { header: 'Phone', dataKey: 'phone' },
+                  { header: 'Added', dataKey: 'added' }
+                ],
+                rows: filtered.map(c => ({
+                  name: c.name,
+                  company: c.company || '—',
+                  email: c.email || '—',
+                  phone: c.phone || '—',
+                  added: formatDate(c.created_at)
+                }))
+              })}
+            />
+            <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add customer</Button>
+          </>
+        }
       />
 
       <div className="flex items-center gap-3">

@@ -7,12 +7,13 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import Spinner from '@/components/ui/Spinner'
 import DropdownMenu from '@/components/ui/DropdownMenu'
+import DownloadPdfButton from '@/components/ui/DownloadPdfButton'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useToast } from '@/context/ToastContext'
-import { formatLKR, formatDate, formatMonth } from '@/lib/format'
+import { formatLKR, formatDate, formatMonth, formatNumber } from '@/lib/format'
 import { listExpenses, deleteExpense, EXPENSE_CATEGORIES } from '../api'
 import ExpenseFormModal from '../components/ExpenseFormModal'
 import MonthlySummary from '../components/MonthlySummary'
@@ -100,7 +101,35 @@ export default function ExpensesListPage() {
       <PageHeader
         title="Expenses"
         description="Track project-linked and general expenses with monthly breakdowns."
-        actions={<Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add expense</Button>}
+        actions={
+          <>
+            <DownloadPdfButton
+              disabled={loading || filtered.length === 0}
+              data={() => ({
+                title: `Expenses — ${formatMonth(year, month)}`,
+                subtitle: `${filtered.length} ${filtered.length === 1 ? 'expense' : 'expenses'}`,
+                columns: [
+                  { header: 'Description', dataKey: 'desc' },
+                  { header: 'Category', dataKey: 'cat' },
+                  { header: 'Date', dataKey: 'date' },
+                  { header: 'Project', dataKey: 'project' },
+                  { header: 'Amount (LKR)', dataKey: 'amount', align: 'right' }
+                ],
+                rows: filtered.map(e => ({
+                  desc: e.description,
+                  cat: e.category,
+                  date: formatDate(e.expense_date),
+                  project: e.project?.name || 'General',
+                  amount: formatNumber(e.amount)
+                })),
+                summary: [
+                  { label: `Total (${filtered.length})`, value: formatLKR(filtered.reduce((s, e) => s + Number(e.amount ?? 0), 0)) }
+                ]
+              })}
+            />
+            <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openAdd}>Add expense</Button>
+          </>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

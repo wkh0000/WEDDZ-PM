@@ -7,10 +7,11 @@ import Input from '@/components/ui/Input'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import Spinner from '@/components/ui/Spinner'
+import DownloadPdfButton from '@/components/ui/DownloadPdfButton'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useToast } from '@/context/ToastContext'
-import { formatLKR, formatDate } from '@/lib/format'
+import { formatLKR, formatDate, formatNumber } from '@/lib/format'
 import { listProjects } from '../api'
 import ProjectFormModal from '../components/ProjectFormModal'
 import { projectStatusBadge, PROJECT_STATUSES } from '../components/ProjectStatusBadge'
@@ -52,7 +53,37 @@ export default function ProjectsListPage() {
       <PageHeader
         title="Projects"
         description="Track active engagements and their financials."
-        actions={<Button leftIcon={<Plus className="w-4 h-4" />} onClick={formDisc.onOpen}>New project</Button>}
+        actions={
+          <>
+            <DownloadPdfButton
+              disabled={loading || filtered.length === 0}
+              data={() => ({
+                title: 'Projects',
+                subtitle: statusFilter === 'all' ? `${filtered.length} projects` : `Status: ${statusFilter}`,
+                columns: [
+                  { header: 'Name', dataKey: 'name' },
+                  { header: 'Customer', dataKey: 'customer' },
+                  { header: 'Status', dataKey: 'status' },
+                  { header: 'Budget (LKR)', dataKey: 'budget', align: 'right' },
+                  { header: 'Start', dataKey: 'start' },
+                  { header: 'End', dataKey: 'end' }
+                ],
+                rows: filtered.map(p => ({
+                  name: p.name,
+                  customer: p.customer ? (p.customer.company || p.customer.name) : 'Internal',
+                  status: (p.status || '').replace(/_/g, ' ').toUpperCase(),
+                  budget: formatNumber(p.budget),
+                  start: formatDate(p.start_date),
+                  end: p.end_date ? formatDate(p.end_date) : '—'
+                })),
+                summary: [
+                  { label: `Total budget (${filtered.length})`, value: formatLKR(filtered.reduce((s, p) => s + Number(p.budget ?? 0), 0)) }
+                ]
+              })}
+            />
+            <Button leftIcon={<Plus className="w-4 h-4" />} onClick={formDisc.onOpen}>New project</Button>
+          </>
+        }
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">

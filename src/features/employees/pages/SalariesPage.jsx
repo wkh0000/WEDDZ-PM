@@ -9,11 +9,12 @@ import Avatar from '@/components/ui/Avatar'
 import EmptyState from '@/components/ui/EmptyState'
 import Spinner from '@/components/ui/Spinner'
 import DropdownMenu from '@/components/ui/DropdownMenu'
+import DownloadPdfButton from '@/components/ui/DownloadPdfButton'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { Table, THead, TR, TH, TD } from '@/components/ui/Table'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { useToast } from '@/context/ToastContext'
-import { formatLKR, formatMonth, formatDate } from '@/lib/format'
+import { formatLKR, formatMonth, formatDate, formatNumber } from '@/lib/format'
 import {
   listSalaries, deleteSalary, paySalary, unpaySalary, generateMonthlySalaries,
   listAdvances, cancelAdvance, outstandingAdvanceTotals
@@ -145,6 +146,37 @@ export default function SalariesPage() {
         actions={
           <>
             <Link to="/employees"><Button variant="subtle">Employees →</Button></Link>
+            <DownloadPdfButton
+              disabled={loading || items.length === 0}
+              data={() => ({
+                title: `Salaries — ${formatMonth(year, month)}`,
+                subtitle: `${items.length} ${items.length === 1 ? 'record' : 'records'}`,
+                orientation: 'landscape',
+                columns: [
+                  { header: 'Employee', dataKey: 'emp' },
+                  { header: 'Base (LKR)', dataKey: 'base', align: 'right' },
+                  { header: 'Bonus (LKR)', dataKey: 'bonus', align: 'right' },
+                  { header: 'Deductions (LKR)', dataKey: 'ded', align: 'right' },
+                  { header: 'Net (LKR)', dataKey: 'net', align: 'right' },
+                  { header: 'Status', dataKey: 'status' },
+                  { header: 'Paid on', dataKey: 'paid' }
+                ],
+                rows: items.map(s => ({
+                  emp: s.employee?.full_name ?? '—',
+                  base: formatNumber(s.amount),
+                  bonus: formatNumber(s.bonus),
+                  ded: formatNumber(s.deductions),
+                  net: formatNumber(s.net_amount),
+                  status: s.status === 'paid' ? 'PAID' : 'PENDING',
+                  paid: s.paid_on ? formatDate(s.paid_on) : '—'
+                })),
+                summary: [
+                  { label: 'Total net', value: formatLKR(totals.total) },
+                  { label: 'Pending', value: formatLKR(totals.pending) },
+                  { label: 'Paid', value: formatLKR(totals.paid) }
+                ]
+              })}
+            />
             <Button variant="subtle" leftIcon={<HandCoins className="w-4 h-4" />} onClick={advanceDisc.onOpen}>Give advance</Button>
             <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => { setEditing(null); formDisc.onOpen() }}>Add salary</Button>
           </>
