@@ -103,3 +103,71 @@ export async function cashFlow(months = 12) {
     return { ...s, balance: running }
   })
 }
+
+/**
+ * Full cash ledger from the very first record — every cash movement as a
+ * single chronological list with a running balance. Cash basis:
+ *   • IN  = paid invoices, dated by paid_at
+ *   • OUT = expenses, dated by expense_date (covers salaries, advances,
+ *           rent, software, everything in the expenses table)
+ *
+ * Returns { entries, totalIn, totalOut, balance } where entries are
+ * NEWEST-FIRST and each carries `balance` = the running balance *after*
+ * that transaction (bank-statement style: the top row's balance is the
+ * current balance).
+ */
+export async function cashflowLedger() {
+  const [{ data: invs, error: e1 }, { data: exps, error: e2 }] = await Promise.all([
+    supabase.from('invoices')
+      .select('id, invoice_no, total, paid_at, customer:customers(name,company)')
+      .eq('status', 'paid'),
+    supabase.from('expenses')
+      .select('id, description, category, amount, expense_date')
+  ])
+  if (e1) throw e1; if (e2) throw e2
+
+  const entries = []
+  for (const i of invs ?? []) {
+    if (!i.paid_at) continue
+    entries.push({
+      id: `inv-${i.id}`,
+      date: i.paid_at.slice(0, 10),
+      ts: new Date(i.paid_at).getTime(),
+      direction: 'in',
+      label: `${i.invoice_no} · ${i.customer?.company || i.customer?.name || 'Customer'}`,
+      category: 'Invoice',
+      amount: Number(i.total ?? 0)
+    })
+  }
+  for (const e of exps ?? []) {
+    entries.push({
+      id: `exp-${e.id}`,
+      date: e.expense_date,
+      ts: new Date(e.expense_date).getTime(),
+      direction: 'out',
+      label: e.description,
+      category: e.category,
+      amount: Number(e.amount ?? 0)
+    })
+  }
+
+  // Chronological (oldest → newest) to accumulate the running balance.
+  // Tie-break: same-day inflows before outflows, then by id for stability.
+  entries.sort((a, b) =>
+    a.ts - b.ts ||
+    (a.direction === b.direction ? 0 : a.direction === 'in' ? -1 : 1) ||
+    a.id.localeCompare(b.id)
+  )
+  let running = 0
+  for (const en of entries) {
+    running += en.direction === 'in' ? en.amount : -en.amount
+    en.balance = running
+  }
+
+  const totalIn  = entries.filter(e => e.direction === 'in').reduce((s, e) => s + e.amount, 0)
+  const totalOut = entries.filter(e => e.direction === 'out').reduce((s, e) => s + e.amount, 0)
+
+  // Present newest-first; each row keeps its point-in-time balance.
+  entries.reverse()
+  return { entries, totalIn, totalOut, balance: totalIn - totalOut }
+}

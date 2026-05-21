@@ -24,6 +24,7 @@ import EmployeesListPage from '@/features/employees/pages/EmployeesListPage'
 import EmployeeDetailPage from '@/features/employees/pages/EmployeeDetailPage'
 import SalariesPage from '@/features/employees/pages/SalariesPage'
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
+import CashflowPage from '@/features/insights/pages/CashflowPage'
 
 // Heavy pages — code-split to keep the main bundle small
 const BoardPage    = lazy(() => import('@/features/tasks/pages/BoardPage'))
@@ -60,6 +61,7 @@ export default function AppRoutes() {
         <Route path="/salaries"       element={<RoleGate><SalariesPage /></RoleGate>} />
 
         <Route path="/insights" element={<Suspense fallback={<PageLoader />}><InsightsPage /></Suspense>} />
+        <Route path="/cashflow" element={<CashflowPage />} />
 
         <Route path="/admin/users"   element={<RoleGate><UsersListPage /></RoleGate>} />
         <Route path="/admin/backups" element={<RoleGate><BackupsPage /></RoleGate>} />

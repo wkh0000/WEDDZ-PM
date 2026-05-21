@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FolderKanban, FileText, Receipt,
-  UserCog, BarChart3, Shield, Sparkles, Database
+  UserCog, BarChart3, Shield, Sparkles, Database, ArrowDownUp
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/context/AuthContext'
@@ -16,6 +16,7 @@ function buildNav(isSuperAdmin) {
     { to: '/projects',    label: 'Projects',  icon: FolderKanban },
     { to: '/invoices',    label: 'Invoices',  icon: FileText },
     { to: '/expenses',    label: 'Expenses',  icon: Receipt },
+    { to: '/cashflow',    label: 'Cashflow',  icon: ArrowDownUp },
     { to: '/insights',    label: 'Insights',  icon: BarChart3 }
   ]
   if (isSuperAdmin) {
