@@ -8,7 +8,7 @@ import InvoiceLineItems from './InvoiceLineItems'
 import { useToast } from '@/context/ToastContext'
 import { listCustomers } from '@/features/customers/api'
 import { listProjects } from '@/features/projects/api'
-import { createInvoice, updateInvoice, listInvoiceItems, nextInvoiceNumber } from '../api'
+import { createInvoice, updateInvoice, listInvoiceItems, nextInvoiceNumber, getInvoice } from '../api'
 import { INVOICE_STATUSES } from './InvoiceStatusBadge'
 
 export default function InvoiceFormModal({ open, onClose, invoice, onSaved }) {
@@ -28,15 +28,34 @@ export default function InvoiceFormModal({ open, onClose, invoice, onSaved }) {
       setCustomers(cs); setProjects(ps)
     }).catch(() => {})
     if (invoice) {
-      setForm({
-        invoice_no: invoice.invoice_no,
-        customer_id: invoice.customer_id ?? '',
-        project_id: invoice.project_id ?? '',
-        issue_date: invoice.issue_date ?? today(),
-        due_date: invoice.due_date ?? '',
-        status: invoice.status ?? 'draft',
-        tax_rate: invoice.tax_rate ?? 0,
-        notes: invoice.notes ?? ''
+      // The `invoice` prop comes from listInvoices, which only selects a
+      // subset of columns (no customer_id/project_id/tax_rate/notes). Fetch
+      // the full row so the edit form is seeded with every field — otherwise
+      // Customer + Project show as empty, and saving silently clobbers
+      // tax_rate / notes back to defaults.
+      getInvoice(invoice.id).then(full => {
+        setForm({
+          invoice_no: full.invoice_no,
+          customer_id: full.customer_id ?? '',
+          project_id: full.project_id ?? '',
+          issue_date: full.issue_date ?? today(),
+          due_date: full.due_date ?? '',
+          status: full.status ?? 'draft',
+          tax_rate: full.tax_rate ?? 0,
+          notes: full.notes ?? ''
+        })
+      }).catch(() => {
+        // Best-effort fallback to whatever the list row gave us.
+        setForm({
+          invoice_no: invoice.invoice_no,
+          customer_id: invoice.customer_id ?? invoice.customer?.id ?? '',
+          project_id: invoice.project_id ?? invoice.project?.id ?? '',
+          issue_date: invoice.issue_date ?? today(),
+          due_date: invoice.due_date ?? '',
+          status: invoice.status ?? 'draft',
+          tax_rate: invoice.tax_rate ?? 0,
+          notes: invoice.notes ?? ''
+        })
       })
       listInvoiceItems(invoice.id).then(setItems).catch(() => setItems([]))
     } else {
