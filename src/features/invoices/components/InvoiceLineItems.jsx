@@ -2,7 +2,16 @@ import { Trash2, Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { formatLKR } from '@/lib/format'
 
+// Shared visible-field styling so the user can immediately tell a cell
+// is editable. The old `bg-transparent` look made qty/unit_price feel
+// like static text, and Amount was a `<span>` so it couldn't be
+// changed at all — both reported as confusing.
+const FIELD = 'bg-white/[0.04] border border-white/10 rounded px-1.5 py-1 text-sm text-zinc-100 ' +
+  'hover:border-white/20 focus:border-indigo-400/60 focus:bg-white/[0.06] focus:outline-none ' +
+  'disabled:opacity-60 disabled:cursor-not-allowed'
+
 export default function InvoiceLineItems({ items, onChange, taxRate, onTaxRateChange, readOnly = false }) {
+  /** Patch qty/unit_price/description → amount = qty × unit_price. */
   function update(index, patch) {
     const next = items.map((it, i) => {
       if (i !== index) return it
@@ -14,6 +23,26 @@ export default function InvoiceLineItems({ items, onChange, taxRate, onTaxRateCh
     })
     onChange(next)
   }
+
+  /**
+   * Set the line's amount directly. Derives unit_price from the typed
+   * amount and the current quantity (qty defaults to 1 if zero), so
+   * amount = qty × unit_price stays consistent. This lets the user
+   * enter "1500" once for a flat-fee line instead of being forced to
+   * pick a qty and unit price.
+   */
+  function setAmount(index, raw) {
+    const next = items.map((it, i) => {
+      if (i !== index) return it
+      const a = Number(raw)
+      if (!Number.isFinite(a)) return { ...it, amount: 0 }
+      const q = Number(it.quantity ?? 0) > 0 ? Number(it.quantity) : 1
+      const u = +(a / q).toFixed(2)
+      return { ...it, quantity: q, unit_price: u, amount: +a.toFixed(2) }
+    })
+    onChange(next)
+  }
+
   function remove(index) { onChange(items.filter((_, i) => i !== index)) }
   function add() { onChange([...items, { description: '', quantity: 1, unit_price: 0, amount: 0 }]) }
 
@@ -45,26 +74,34 @@ export default function InvoiceLineItems({ items, onChange, taxRate, onTaxRateCh
                 value={it.description ?? ''}
                 onChange={e => update(i, { description: e.target.value })}
                 placeholder="Service / item"
-                className="col-span-6 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none px-1.5 py-1 rounded hover:bg-white/[0.03] focus:bg-white/[0.05]"
+                className={`col-span-6 ${FIELD} placeholder:text-zinc-500`}
               />
               <input
                 disabled={readOnly}
                 type="number" step="1" min="0"
                 value={it.quantity ?? ''}
                 onChange={e => update(i, { quantity: e.target.value })}
-                className="col-span-2 bg-transparent text-sm text-zinc-100 text-right focus:outline-none px-1.5 py-1 rounded hover:bg-white/[0.03] focus:bg-white/[0.05] tabular-nums"
+                className={`col-span-2 ${FIELD} text-right tabular-nums`}
               />
               <input
                 disabled={readOnly}
                 type="number" step="0.01" min="0"
                 value={it.unit_price ?? ''}
                 onChange={e => update(i, { unit_price: e.target.value })}
-                className="col-span-2 bg-transparent text-sm text-zinc-100 text-right focus:outline-none px-1.5 py-1 rounded hover:bg-white/[0.03] focus:bg-white/[0.05] tabular-nums"
+                className={`col-span-2 ${FIELD} text-right tabular-nums`}
               />
-              <div className="col-span-2 flex items-center justify-end gap-2">
-                <span className="text-sm text-zinc-100 tabular-nums">{formatLKR(it.amount ?? 0)}</span>
+              <div className="col-span-2 flex items-center justify-end gap-1.5">
+                <input
+                  disabled={readOnly}
+                  type="number" step="0.01" min="0"
+                  value={it.amount ?? ''}
+                  onChange={e => setAmount(i, e.target.value)}
+                  title="Editable — sets unit price = amount / qty"
+                  className={`flex-1 min-w-0 ${FIELD} text-right tabular-nums font-medium`}
+                />
                 {!readOnly && (
-                  <button onClick={() => remove(i)} className="text-zinc-500 hover:text-rose-400 p-1 rounded">
+                  <button onClick={() => remove(i)} aria-label="Remove line"
+                    className="text-zinc-500 hover:text-rose-400 p-1 rounded shrink-0">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
