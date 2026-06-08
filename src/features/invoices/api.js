@@ -51,11 +51,32 @@ export async function nextInvoiceNumber() {
   return data
 }
 
+/**
+ * Keep `paid_at` consistent with `status` on every write — the form
+ * doesn't set paid_at itself, so without this an invoice created with
+ * status='paid' would have paid_at=null and silently disappear from
+ * the cashflow ledger (which keys cash-in off paid_at). When status is
+ * paid we stamp now() if it's missing, and clear it when status moves
+ * away from paid.
+ */
+function normalizePaidAt(invoice, existing = {}) {
+  const out = { ...invoice }
+  if ('status' in out) {
+    if (out.status === 'paid') {
+      if (!out.paid_at && !existing.paid_at) out.paid_at = new Date().toISOString()
+    } else {
+      out.paid_at = null
+    }
+  }
+  return out
+}
+
 export async function createInvoice({ invoice, items }) {
   const { data: { user } } = await supabase.auth.getUser()
+  const payload = normalizePaidAt(invoice)
   const { data: created, error } = await supabase
     .from('invoices')
-    .insert({ ...invoice, created_by: user?.id })
+    .insert({ ...payload, created_by: user?.id })
     .select()
     .single()
   if (error) throw error
@@ -75,9 +96,14 @@ export async function createInvoice({ invoice, items }) {
 }
 
 export async function updateInvoice({ id, invoice, items }) {
+  // Pull existing paid_at so we don't overwrite a real timestamp when
+  // editing an already-paid invoice.
+  const { data: existing } = await supabase
+    .from('invoices').select('paid_at,status').eq('id', id).maybeSingle()
+  const payload = normalizePaidAt(invoice, existing ?? {})
   const { data: updated, error } = await supabase
     .from('invoices')
-    .update(invoice)
+    .update(payload)
     .eq('id', id)
     .select()
     .single()

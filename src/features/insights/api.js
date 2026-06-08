@@ -119,7 +119,7 @@ export async function cashFlow(months = 12) {
 export async function cashflowLedger() {
   const [{ data: invs, error: e1 }, { data: exps, error: e2 }] = await Promise.all([
     supabase.from('invoices')
-      .select('id, invoice_no, total, paid_at, customer:customers(name,company)')
+      .select('id, invoice_no, total, paid_at, issue_date, customer:customers(name,company)')
       .eq('status', 'paid'),
     supabase.from('expenses')
       .select('id, description, category, amount, expense_date')
@@ -128,11 +128,16 @@ export async function cashflowLedger() {
 
   const entries = []
   for (const i of invs ?? []) {
-    if (!i.paid_at) continue
+    // Fall back to issue_date if paid_at is null — older paid invoices
+    // created before the createInvoice paid_at normalization can still
+    // be missing the timestamp. Cash-basis date is just "when this
+    // counted as paid", and issue_date is the best signal we have.
+    const dateIso = i.paid_at || (i.issue_date ? `${i.issue_date}T00:00:00Z` : null)
+    if (!dateIso) continue
     entries.push({
       id: `inv-${i.id}`,
-      date: i.paid_at.slice(0, 10),
-      ts: new Date(i.paid_at).getTime(),
+      date: dateIso.slice(0, 10),
+      ts: new Date(dateIso).getTime(),
       direction: 'in',
       label: `${i.invoice_no} · ${i.customer?.company || i.customer?.name || 'Customer'}`,
       category: 'Invoice',
