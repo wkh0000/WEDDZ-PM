@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FolderKanban, FileText, Receipt,
-  UserCog, BarChart3, Shield, Sparkles, Database, ArrowDownUp, Wallet
+  UserCog, BarChart3, Shield, Sparkles, Database, ArrowDownUp, Wallet, ClipboardList
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/context/AuthContext'
@@ -25,6 +25,8 @@ function buildNav(isSuperAdmin) {
       { to: '/employees', label: 'Employees', icon: UserCog },
       { to: '/salaries',  label: 'Salaries',  icon: Wallet }
     )
+    // Reports lives next to Insights (both analytics), after Cashflow.
+    nav.push({ to: '/reports', label: 'Reports', icon: ClipboardList })
     nav.push({ to: '/admin/users',   label: 'Team Members', icon: Shield,   group: 'admin' })
     nav.push({ to: '/admin/backups', label: 'Backups',      icon: Database, group: 'admin' })
   }
