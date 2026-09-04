@@ -36,13 +36,16 @@ const json = (body: unknown, status = 200) =>
 
 // Order matters for SQL restore: parents before children so FK constraints
 // are satisfied. Wrapped in BEGIN/COMMIT in the dump.
+// `salary_advances` (mig 010) references employees + salaries + expenses,
+// so it sits after all three. `task_assignees` (mig 008) references
+// tasks + profiles, so it sits after tasks.
 const TABLES = [
   'profiles', 'org_counters',
   'customers', 'projects', 'project_updates',
   'project_phases', 'phase_deliverables', 'project_documents',
   'invoices', 'invoice_items', 'expenses',
-  'employees', 'salaries',
-  'task_columns', 'task_labels', 'tasks', 'task_label_assignments',
+  'employees', 'salaries', 'salary_advances',
+  'task_columns', 'task_labels', 'tasks', 'task_label_assignments', 'task_assignees',
   'task_checklist_items', 'task_comments', 'task_attachments', 'task_activity'
 ]
 

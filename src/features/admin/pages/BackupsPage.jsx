@@ -96,8 +96,8 @@ export default function BackupsPage() {
             </span>
             <div className="text-xs uppercase tracking-widest text-zinc-500">Tables captured</div>
           </div>
-          <div className="text-sm font-semibold text-zinc-100">21</div>
-          <div className="text-xs text-zinc-500 mt-1">profiles, customers, projects, phases, documents, invoices, expenses, kanban &amp; more.</div>
+          <div className="text-sm font-semibold text-zinc-100">23</div>
+          <div className="text-xs text-zinc-500 mt-1">profiles, customers, projects, phases, documents, invoices, expenses, salaries + advances, kanban + assignees &amp; more.</div>
         </Card>
         <Card>
           <div className="flex items-center gap-2 mb-2">
