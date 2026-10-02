@@ -1,7 +1,11 @@
 import { supabase } from '@/lib/supabase'
 
+// Keep in sync with the `expense_category` Postgres enum. Adding a new
+// one needs an `alter type expense_category add value '...'` migration
+// — see supabase/migrations/011_add_expense_categories.sql.
 export const EXPENSE_CATEGORIES = [
-  'Software', 'Hardware', 'Travel', 'Subcontractor', 'Marketing', 'Salary', 'Other'
+  'Software', 'Hardware', 'Travel', 'Subcontractor', 'Marketing',
+  'Salary', 'Food', 'Office', 'Other'
 ]
 
 export async function listExpenses(options = {}) {

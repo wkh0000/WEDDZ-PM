@@ -235,6 +235,7 @@ function categoryTone(c) {
   return ({
     Software: 'indigo', Hardware: 'violet', Travel: 'sky',
     Subcontractor: 'emerald', Marketing: 'amber', Salary: 'rose',
+    Food: 'emerald', Office: 'sky',
     Other: 'default'
   })[c] || 'default'
 }
