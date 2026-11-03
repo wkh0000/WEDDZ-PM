@@ -1,0 +1,474 @@
+{
+  "kind": "invoice",
+  "docTitle": "INVOICE",
+  "docNo": "WIT-INV-2026-085-06",
+  "createdAt": "2026-11-01",
+  "info": {
+    "fromHeading": "FROM",
+    "col2": [
+      {
+        "heading": "BILL TO",
+        "strong": "Mr. Jayantha Munaweera",
+        "lines": [
+          "JMC Wines Group",
+          "Mobile: +94 77 784 3334"
+        ]
+      },
+      {
+        "heading": "OUTLETS",
+        "lines": [
+          "New City Light, Royal, Kumbukgete & Theldeniya"
+        ]
+      }
+    ],
+    "col3": [
+      {
+        "heading": "INVOICE DETAILS",
+        "rows": [
+          [
+            "Invoice No:",
+            "WIT-INV-2026-085-06",
+            true
+          ],
+          [
+            "Invoice date:",
+            "1 November 2026",
+            true
+          ],
+          [
+            "Due date:",
+            "8 November 2026",
+            true
+          ],
+          [
+            "Currency:",
+            "Sri Lankan Rupees (Rs.)"
+          ],
+          [
+            "Project:",
+            "Quotation WIT-Q-2026-085-R1"
+          ]
+        ]
+      }
+    ]
+  },
+  "heading": "Software & Hardware — JMC Wines Group Outlets",
+  "intro": "Outlet software and the hardware delivered to four outlets, as signed for on each outlet's delivery note, plus a tablet for the owner.",
+  "sections": [
+    {
+      "label": "New City Light Wine Stores",
+      "note": "delivery note WIT-DN-2026-085-01",
+      "rows": [
+        {
+          "description": "Liquor Store Management System — outlet software",
+          "detail": "Outlet licence, setup, data loading, staff training and go-live support",
+          "qty": 1,
+          "unitPrice": 150000,
+          "amount": 150000,
+          "free": false
+        },
+        {
+          "description": "POS terminal — Intel Core i5, 5th generation",
+          "qty": 1,
+          "unitPrice": 120000,
+          "amount": 120000,
+          "free": false
+        },
+        {
+          "description": "Desktop barcode scanner — hands-free",
+          "qty": 1,
+          "unitPrice": 8400,
+          "amount": 8400,
+          "free": false
+        },
+        {
+          "description": "Xprinter thermal receipt printer",
+          "qty": 1,
+          "unitPrice": 14700,
+          "amount": 14700,
+          "free": false
+        },
+        {
+          "description": "RFID card reader",
+          "qty": 2,
+          "unitPrice": 5400,
+          "amount": 10800,
+          "free": false
+        },
+        {
+          "description": "Samsung Galaxy Tab A11+ 5G set",
+          "detail": "With tempered glass screen protector, pouch and charging dock with power adapter",
+          "qty": 1,
+          "unitPrice": 87000,
+          "amount": 87000,
+          "free": false
+        },
+        {
+          "description": "Jertech M120 wired mouse",
+          "qty": 1,
+          "unitPrice": 830,
+          "amount": 830,
+          "free": false
+        },
+        {
+          "description": "Z10 wired keyboard",
+          "qty": 1,
+          "unitPrice": 1350,
+          "amount": 1350,
+          "free": false
+        },
+        {
+          "description": "DEEN power extension socket",
+          "qty": 1,
+          "unitPrice": 1860,
+          "amount": 1860,
+          "free": false
+        },
+        {
+          "description": "Staff ID cards with lanyards",
+          "qty": 3,
+          "unitPrice": null,
+          "amount": 0,
+          "free": true
+        }
+      ],
+      "totalLabel": "Outlet total — New City Light Wine Stores",
+      "total": 394940
+    },
+    {
+      "label": "Royal Wine Stores",
+      "note": "delivery note WIT-DN-2026-085-02",
+      "rows": [
+        {
+          "description": "Liquor Store Management System — outlet software",
+          "detail": "Outlet licence, setup, data loading, staff training and go-live support",
+          "qty": 1,
+          "unitPrice": 150000,
+          "amount": 150000,
+          "free": false
+        },
+        {
+          "description": "POS terminal — Intel Core i5, 5th generation",
+          "qty": 1,
+          "unitPrice": 120000,
+          "amount": 120000,
+          "free": false
+        },
+        {
+          "description": "Desktop barcode scanner — hands-free",
+          "qty": 1,
+          "unitPrice": 8400,
+          "amount": 8400,
+          "free": false
+        },
+        {
+          "description": "Xprinter thermal receipt printer",
+          "qty": 1,
+          "unitPrice": 14700,
+          "amount": 14700,
+          "free": false
+        },
+        {
+          "description": "RFID card reader",
+          "qty": 2,
+          "unitPrice": 5400,
+          "amount": 10800,
+          "free": false
+        },
+        {
+          "description": "Samsung Galaxy Tab A11+ 5G set",
+          "detail": "With tempered glass screen protector, pouch and charging dock with power adapter",
+          "qty": 1,
+          "unitPrice": 87000,
+          "amount": 87000,
+          "free": false
+        },
+        {
+          "description": "Jertech M120 wired mouse",
+          "qty": 1,
+          "unitPrice": 830,
+          "amount": 830,
+          "free": false
+        },
+        {
+          "description": "Z10 wired keyboard",
+          "qty": 1,
+          "unitPrice": 1350,
+          "amount": 1350,
+          "free": false
+        },
+        {
+          "description": "DEEN power extension socket",
+          "qty": 2,
+          "unitPrice": 1860,
+          "amount": 3720,
+          "free": false
+        },
+        {
+          "description": "Staff ID cards with lanyards",
+          "qty": 3,
+          "unitPrice": null,
+          "amount": 0,
+          "free": true
+        }
+      ],
+      "totalLabel": "Outlet total — Royal Wine Stores",
+      "total": 396800
+    },
+    {
+      "label": "Kumbukgete Wine Stores",
+      "note": "delivery note WIT-DN-2026-085-03",
+      "rows": [
+        {
+          "description": "Liquor Store Management System — outlet software",
+          "detail": "Outlet licence, setup, data loading, staff training and go-live support",
+          "qty": 1,
+          "unitPrice": 150000,
+          "amount": 150000,
+          "free": false
+        },
+        {
+          "description": "POS terminal — Intel Core i5, 5th generation",
+          "qty": 2,
+          "unitPrice": 120000,
+          "amount": 240000,
+          "free": false
+        },
+        {
+          "description": "Desktop barcode scanner — hands-free",
+          "qty": 2,
+          "unitPrice": 8400,
+          "amount": 16800,
+          "free": false
+        },
+        {
+          "description": "Xprinter thermal receipt printer",
+          "qty": 2,
+          "unitPrice": 14700,
+          "amount": 29400,
+          "free": false
+        },
+        {
+          "description": "POS printer paper roll",
+          "qty": 2,
+          "unitPrice": 230,
+          "amount": 460,
+          "free": false
+        },
+        {
+          "description": "RFID card reader",
+          "qty": 2,
+          "unitPrice": 5400,
+          "amount": 10800,
+          "free": false
+        },
+        {
+          "description": "Samsung Galaxy Tab A11+ 5G set",
+          "detail": "With tempered glass screen protector, pouch and charging dock with power adapter",
+          "qty": 1,
+          "unitPrice": 87000,
+          "amount": 87000,
+          "free": false
+        },
+        {
+          "description": "Jertech M120 wired mouse",
+          "qty": 2,
+          "unitPrice": 830,
+          "amount": 1660,
+          "free": false
+        },
+        {
+          "description": "Z10 wired keyboard",
+          "qty": 2,
+          "unitPrice": 1350,
+          "amount": 2700,
+          "free": false
+        },
+        {
+          "description": "DEEN power extension socket",
+          "qty": 2,
+          "unitPrice": 1860,
+          "amount": 3720,
+          "free": false
+        },
+        {
+          "description": "Staff ID cards",
+          "qty": 3,
+          "unitPrice": null,
+          "amount": 0,
+          "free": true
+        },
+        {
+          "description": "Lanyard",
+          "qty": 1,
+          "unitPrice": null,
+          "amount": 0,
+          "free": true
+        }
+      ],
+      "totalLabel": "Outlet total — Kumbukgete Wine Stores",
+      "total": 542540
+    },
+    {
+      "label": "Theldeniya Wine Stores",
+      "note": "delivery note WIT-DN-2026-085-04",
+      "rows": [
+        {
+          "description": "Liquor Store Management System — outlet software",
+          "detail": "Outlet licence, setup, data loading, staff training and go-live support",
+          "qty": 1,
+          "unitPrice": 150000,
+          "amount": 150000,
+          "free": false
+        },
+        {
+          "description": "POS terminal — Intel Core i5, 5th generation",
+          "qty": 1,
+          "unitPrice": 120000,
+          "amount": 120000,
+          "free": false
+        },
+        {
+          "description": "Desktop barcode scanner — hands-free",
+          "qty": 1,
+          "unitPrice": 8400,
+          "amount": 8400,
+          "free": false
+        },
+        {
+          "description": "Xprinter thermal receipt printer",
+          "qty": 1,
+          "unitPrice": 14700,
+          "amount": 14700,
+          "free": false
+        },
+        {
+          "description": "POS printer paper roll",
+          "qty": 1,
+          "unitPrice": 230,
+          "amount": 230,
+          "free": false
+        },
+        {
+          "description": "RFID card reader",
+          "qty": 2,
+          "unitPrice": 5400,
+          "amount": 10800,
+          "free": false
+        },
+        {
+          "description": "Samsung Galaxy Tab A11+ 5G set",
+          "detail": "With tempered glass screen protector, pouch and power adapter",
+          "qty": 1,
+          "unitPrice": 87000,
+          "amount": 87000,
+          "free": false
+        },
+        {
+          "description": "Jertech M120 wired mouse",
+          "qty": 1,
+          "unitPrice": 830,
+          "amount": 830,
+          "free": false
+        },
+        {
+          "description": "Z10 wired keyboard",
+          "qty": 1,
+          "unitPrice": 1350,
+          "amount": 1350,
+          "free": false
+        },
+        {
+          "description": "DEEN power extension socket",
+          "qty": 1,
+          "unitPrice": 1860,
+          "amount": 1860,
+          "free": false
+        },
+        {
+          "description": "Staff ID cards with lanyards",
+          "qty": 3,
+          "unitPrice": null,
+          "amount": 0,
+          "free": true
+        }
+      ],
+      "totalLabel": "Outlet total — Theldeniya Wine Stores",
+      "total": 395170
+    },
+    {
+      "label": "Owner tablet — Mr. Jayantha Munaweera",
+      "rows": [
+        {
+          "description": "Samsung Galaxy Tab A11+ 5G set",
+          "detail": "With tempered glass screen protector, pouch and charging dock with power adapter",
+          "qty": 1,
+          "unitPrice": 87000,
+          "amount": 87000,
+          "free": false
+        }
+      ],
+      "totalLabel": "Total — Owner tablet — Mr. Jayantha Munaweera",
+      "total": 87000
+    }
+  ],
+  "summary": {
+    "heading": "SUMMARY BY OUTLET",
+    "rows": [
+      {
+        "label": "New City Light Wine Stores",
+        "software": 150000,
+        "hardware": 244940,
+        "total": 394940
+      },
+      {
+        "label": "Royal Wine Stores",
+        "software": 150000,
+        "hardware": 246800,
+        "total": 396800
+      },
+      {
+        "label": "Kumbukgete Wine Stores",
+        "software": 150000,
+        "hardware": 392540,
+        "total": 542540
+      },
+      {
+        "label": "Theldeniya Wine Stores",
+        "software": 150000,
+        "hardware": 245170,
+        "total": 395170
+      },
+      {
+        "label": "Owner tablet — Mr. Jayantha Munaweera",
+        "software": 0,
+        "hardware": 87000,
+        "total": 87000
+      }
+    ],
+    "total": {
+      "software": 600000,
+      "hardware": 1216450,
+      "total": 1816450
+    }
+  },
+  "totalDue": {
+    "label": "TOTAL AMOUNT DUE",
+    "amount": 1816450,
+    "words": "Sri Lankan Rupees One Million Eight Hundred Sixteen Thousand Four Hundred Fifty Only"
+  },
+  "payment": {
+    "dueDate": "8 November 2026",
+    "quoteNo": "WIT-INV-2026-085-06"
+  },
+  "terms": {
+    "heading": "WARRANTY & TERMS",
+    "bullets": [
+      "This invoice replaces invoices WIT-INV-2026-085-04 and WIT-INV-2026-085-05.",
+      "POS hardware carries a 1-year warranty and each tablet a 1-year guarantee, from the date of delivery.",
+      "Cover is for manufacturing defects. It does not cover physical damage, liquid damage, power surges or misuse."
+    ]
+  },
+  "closing": "This is a computer-generated invoice and does not require a signature.",
+  "footerThanks": "Thank you for your business!"
+}

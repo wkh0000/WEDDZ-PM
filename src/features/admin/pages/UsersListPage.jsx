@@ -123,6 +123,8 @@ export default function UsersListPage() {
                   <TD>
                     {p.role === 'super_admin' ? (
                       <Badge tone="indigo" dot>Super Admin</Badge>
+                    ) : p.role === 'inventory' ? (
+                      <Badge tone="sky" dot>Inventory</Badge>
                     ) : (
                       <Badge dot>Member</Badge>
                     )}
@@ -144,7 +146,7 @@ export default function UsersListPage() {
                       }
                       items={[
                         { label: 'Edit member', icon: Pencil, onClick: () => openEdit(p) },
-                        { label: p.role === 'super_admin' ? 'Active super admin' : 'Active member', icon: Shield, disabled: true }
+                        { label: p.role === 'super_admin' ? 'Active super admin' : p.role === 'inventory' ? 'Active inventory user' : 'Active member', icon: Shield, disabled: true }
                       ]}
                     />
                   </TD>

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FolderKanban, FileText, Receipt,
-  UserCog, BarChart3, Shield, Sparkles, Database, ArrowDownUp, Wallet, ClipboardList
+  UserCog, BarChart3, Shield, Sparkles, Database, ArrowDownUp, Wallet, ClipboardList, Boxes
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/context/AuthContext'
@@ -9,19 +9,22 @@ import { motion } from 'framer-motion'
 
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'WEDDZ PM'
 
-function buildNav(isSuperAdmin) {
+function buildNav(role) {
+  const isSuperAdmin = role === 'super_admin'
+  if (role === 'inventory') return [{ to: '/inventory', label: 'Inventory', icon: Boxes }]
   const nav = [
     { to: '/',            label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/customers',   label: 'Customers', icon: Users },
     { to: '/projects',    label: 'Projects',  icon: FolderKanban },
     { to: '/invoices',    label: 'Invoices',  icon: FileText },
     { to: '/expenses',    label: 'Expenses',  icon: Receipt },
+    { to: '/inventory',   label: 'Inventory', icon: Boxes },
     { to: '/cashflow',    label: 'Cashflow',  icon: ArrowDownUp },
     { to: '/insights',    label: 'Insights',  icon: BarChart3 }
   ]
   if (isSuperAdmin) {
-    // HR pair, inserted after Expenses.
-    nav.splice(5, 0,
+    // HR pair, inserted after Inventory.
+    nav.splice(6, 0,
       { to: '/employees', label: 'Employees', icon: UserCog },
       { to: '/salaries',  label: 'Salaries',  icon: Wallet }
     )
@@ -34,8 +37,8 @@ function buildNav(isSuperAdmin) {
 }
 
 export default function Sidebar({ onNavigate }) {
-  const { isSuperAdmin } = useAuth()
-  const nav = buildNav(isSuperAdmin)
+  const { role } = useAuth()
+  const nav = buildNav(role)
   const operational = nav.filter(n => n.group !== 'admin')
   const admin       = nav.filter(n => n.group === 'admin')
 

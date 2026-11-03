@@ -4,7 +4,7 @@ import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
-import { createTeamMember, generateTempPassword } from '../api'
+import { createTeamMember, generateTempPassword, setProfileRole } from '../api'
 import { useToast } from '@/context/ToastContext'
 
 export default function AddTeamMemberModal({ open, onClose, onCreated }) {
@@ -43,7 +43,10 @@ export default function AddTeamMemberModal({ open, onClose, onCreated }) {
 
     setSubmitting(true)
     try {
-      const user = await createTeamMember({ email, full_name: fullName, password, role })
+      // create-team-member only knows member/super_admin; stock-only users are created as
+      // members (nobody else knows the password yet) and switched straight away.
+      const user = await createTeamMember({ email, full_name: fullName, password, role: role === 'inventory' ? 'member' : role })
+      if (role === 'inventory') await setProfileRole(user.id, 'inventory')
       toast.success(`${fullName} added. Share the temp password with them.`)
       onCreated?.(user)
       onClose()
@@ -112,6 +115,7 @@ export default function AddTeamMemberModal({ open, onClose, onCreated }) {
           onChange={e => setRole(e.target.value)}
           options={[
             { value: 'member', label: 'Member — full operational access' },
+            { value: 'inventory', label: 'Inventory — stock, products & delivery notes only' },
             { value: 'super_admin', label: 'Super Admin — full + HR + user management' }
           ]}
         />

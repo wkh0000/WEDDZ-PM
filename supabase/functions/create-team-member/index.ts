@@ -39,7 +39,7 @@ serve(async (req) => {
   const { email, full_name, password, role } = body
   if (!email || !password) return json({ error: 'email and password are required' }, 400)
   if (password.length < 8)  return json({ error: 'password must be at least 8 characters' }, 400)
-  const targetRole = role === 'super_admin' ? 'super_admin' : 'member'
+  const targetRole = role === 'super_admin' || role === 'inventory' ? role : 'member'
 
   const supabaseUrl  = Deno.env.get('SUPABASE_URL')
   const anonKey      = Deno.env.get('SUPABASE_ANON_KEY')

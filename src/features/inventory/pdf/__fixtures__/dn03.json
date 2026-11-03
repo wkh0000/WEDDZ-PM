@@ -1,0 +1,45 @@
+{
+  "kind": "delivery_note",
+  "docTitle": "DELIVERY NOTE",
+  "docNo": "WIT-DN-2026-085-03",
+  "createdAt": "2026-11-01",
+  "info": {
+    "fromHeading": "DELIVERED BY",
+    "col2": [
+      { "heading": "CLIENT", "strong": "Mr. Jayantha Munaweera", "lines": ["JMC Wines Group", "Mobile: +94 77 784 3334"] },
+      { "heading": "DELIVERED TO", "strong": "Kumbukgete Wine Stores" }
+    ],
+    "col3": [
+      { "heading": "DELIVERY DETAILS", "rows": [["Delivery note:", "WIT-DN-2026-085-03", true], ["Delivery date:", "1 November 2026", true], ["Billing:", "Invoice to follow"]] },
+      { "heading": "OUTLET ADDRESS", "lines": ["No. 05, Disaneggama, Moragollagama Road, Kumbukgete"] }
+    ]
+  },
+  "heading": "Devices Handed Over — Kumbukgete Wine Stores",
+  "intro": "Hardware and devices delivered for the Liquor Store Management System at Kumbukgete Wine Stores on 1 November 2026.",
+  "itemsHeading": "DEVICES DELIVERED",
+  "items": [
+    { "name": "POS terminal", "detail": "All-in-one counter terminal", "qty": 2 },
+    { "name": "2D image desktop barcode scanner", "detail": "Hands-free, sits on the counter", "qty": 2 },
+    { "name": "Xprinter thermal receipt printer", "qty": 2 },
+    { "name": "POS printer paper roll", "qty": 2 },
+    { "name": "RFID card reader (R20D-USB)", "detail": "For staff ID card login", "qty": 2 },
+    { "name": "Samsung Galaxy Tab A11+ 5G", "detail": "Manager tablet", "qty": 1 },
+    { "name": "Tablet tempered glass screen protector", "qty": 1 },
+    { "name": "Tablet pouch / protective case", "qty": 1 },
+    { "name": "Tablet charging dock with power adapter", "qty": 1 },
+    { "name": "Jertech M120 wired mouse", "qty": 2 },
+    { "name": "Z10 wired keyboard", "qty": 2 },
+    { "name": "DEEN power extension socket", "qty": 2 },
+    { "name": "Staff ID cards", "qty": 3 },
+    { "name": "Lanyard", "qty": 1 }
+  ],
+  "totalItems": 24,
+  "note": "Hardware carries a 1-year warranty and the tablet a 1-year guarantee, from the delivery date. Prices are shown on the related invoice.",
+  "confirmation": {
+    "heading": "BRANCH MANAGER CONFIRMATION",
+    "text": "I, Mr. Prasanna Sanjeewa, branch manager of Kumbukgete Wine Stores, confirm that I have checked all the devices listed above and received them in good condition.",
+    "name": "Mr. Prasanna Sanjeewa",
+    "sub": "Branch manager · 077 555 7742"
+  },
+  "footerThanks": "Thank you for your business!"
+}

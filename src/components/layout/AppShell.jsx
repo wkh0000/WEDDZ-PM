@@ -4,9 +4,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import ChatLauncher from '@/features/assistant/components/ChatLauncher'
+import { useAuth } from '@/context/AuthContext'
 
 export default function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { role } = useAuth()
   const location = useLocation()
 
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
@@ -64,7 +66,7 @@ export default function AppShell() {
         </div>
 
         {/* AI Assistant launcher (visible on every authed page) */}
-        <ChatLauncher />
+        {role !== 'inventory' && <ChatLauncher />}
       </div>
     </div>
   )

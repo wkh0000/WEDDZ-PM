@@ -76,6 +76,7 @@ export default function EditTeamMemberModal({ open, onClose, member, onUpdated }
           hint={isSelf ? 'You cannot change your own role.' : undefined}
           options={[
             { value: 'member', label: 'Member' },
+            { value: 'inventory', label: 'Inventory (stock only)' },
             { value: 'super_admin', label: 'Super Admin' }
           ]}
         />

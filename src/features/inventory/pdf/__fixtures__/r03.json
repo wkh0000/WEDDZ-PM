@@ -1,0 +1,123 @@
+{
+  "kind": "receipt",
+  "docTitle": "PAYMENT RECEIPT",
+  "docNo": "WIT-R-2026-085-03",
+  "createdAt": "2026-10-27",
+  "info": {
+    "fromHeading": "FROM",
+    "col2": [
+      {
+        "heading": "RECEIVED FROM",
+        "strong": "Mr. Jayantha Munaweera",
+        "lines": [
+          "JMC Wines Group",
+          "Mobile: +94 77 784 3334"
+        ]
+      }
+    ],
+    "col3": [
+      {
+        "heading": "RECEIPT DETAILS",
+        "rows": [
+          [
+            "Receipt No:",
+            "WIT-R-2026-085-03",
+            true
+          ],
+          [
+            "Receipt date:",
+            "27 October 2026",
+            true
+          ],
+          [
+            "Payment received on:",
+            "27 October 2026",
+            true
+          ],
+          [
+            "Currency:",
+            "Sri Lankan Rupees (Rs.)"
+          ],
+          [
+            "Against:",
+            "Invoice WIT-INV-2026-085-03"
+          ]
+        ]
+      }
+    ]
+  },
+  "heading": "Liquor Store Management System — Advance & Hardware",
+  "intro": "Received with thanks from Mr. Jayantha Munaweera the sum stated below, as the final payment of Invoice WIT-INV-2026-085-03 (project advance and hardware).",
+  "amountBox": {
+    "label": "AMOUNT RECEIVED",
+    "amount": 466300,
+    "words": "Sri Lankan Rupees Four Hundred Sixty-Six Thousand Three Hundred Only"
+  },
+  "paymentDetails": {
+    "heading": "PAYMENT DETAILS",
+    "rows": [
+      {
+        "description": "Final payment — Invoice WIT-INV-2026-085-03",
+        "detail": "Balance for the POS hardware and manager tablet supplied to Thambapanni Wine Stores, Godagama",
+        "amountText": "Rs. 466,300.00"
+      },
+      {
+        "description": "Payment received on 27 October 2026",
+        "detail": "Payment method: Cheque · Subject to realisation"
+      }
+    ]
+  },
+  "accountSummary": {
+    "heading": "ACCOUNT SUMMARY",
+    "rows": [
+      {
+        "label": "Invoice WIT-INV-2026-085-03 total",
+        "detail": "Advance Rs. 760,000.00 + POS hardware Rs. 419,300.00 + manager tablet Rs. 87,000.00",
+        "amountText": "Rs. 1,266,300.00"
+      },
+      {
+        "label": "Received on 5 October 2026",
+        "detail": "Cheque no. 762771 — Receipt WIT-R-2026-085-01",
+        "amountText": "– Rs. 300,000.00"
+      },
+      {
+        "label": "Received on 27 October 2026",
+        "detail": "Receipt WIT-R-2026-085-02",
+        "amountText": "– Rs. 500,000.00"
+      },
+      {
+        "label": "Received on 27 October 2026",
+        "detail": "This receipt — WIT-R-2026-085-03 (cheque, subject to clearance)",
+        "amountText": "– Rs. 466,300.00"
+      }
+    ],
+    "balance": {
+      "label": "Balance due on Invoice WIT-INV-2026-085-03",
+      "amountText": "Rs. 0.00 — PAID IN FULL*"
+    }
+  },
+  "breakdown": {
+    "heading": "BALANCE BREAKDOWN",
+    "rows": [
+      {
+        "label": "Software — project advance (Rs. 760,000.00): fully paid",
+        "amountText": "Rs. 0.00"
+      },
+      {
+        "label": "Hardware — POS hardware + manager tablet (Rs. 506,300.00): fully paid",
+        "amountText": "Rs. 0.00"
+      }
+    ],
+    "total": {
+      "label": "Balance due on Invoice WIT-INV-2026-085-03",
+      "amountText": "Rs. 0.00"
+    }
+  },
+  "thanksBox": {
+    "title": "Thank you — Invoice WIT-INV-2026-085-03 will be fully settled once the cheque clears.",
+    "body": "The 40% project advance, the POS hardware and the manager tablet for Thambapanni Wine Stores, Godagama will be fully settled when this cheque is realised. We will confirm with you once the payment has cleared. We truly appreciate your prompt payments."
+  },
+  "footnote": "*Subject to realisation of the cheque: this receipt and the paid-in-full status take effect once the cheque has cleared. Invoice WIT-INV-2026-085-04 (hardware sets for City Light, Thalathuoya and Royal Wine Stores, Rs. 690,300.00) is billed separately and is not covered by this receipt. The remaining 60% of the project fees is invoiced as each outlet goes live, as per the Project Agreement.",
+  "closing": "This is a computer-generated receipt and does not require a signature.",
+  "footerThanks": "Thank you for your payment!"
+}

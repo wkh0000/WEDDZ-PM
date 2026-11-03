@@ -27,9 +27,22 @@ import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import CashflowPage from '@/features/insights/pages/CashflowPage'
 import ReportsPage from '@/features/reports/pages/ReportsPage'
 
+import InventoryScope from '@/components/InventoryScope'
+
 // Heavy pages — code-split to keep the main bundle small
 const BoardPage    = lazy(() => import('@/features/tasks/pages/BoardPage'))
 const InsightsPage = lazy(() => import('@/features/insights/pages/InsightsPage'))
+
+const InventoryLayout      = lazy(() => import('@/features/inventory/pages/InventoryLayout'))
+const StockPage            = lazy(() => import('@/features/inventory/pages/StockPage'))
+const DeploymentsPage      = lazy(() => import('@/features/inventory/pages/DeploymentsPage'))
+const DeploymentDetailPage = lazy(() => import('@/features/inventory/pages/DeploymentDetailPage'))
+const MovementsPage        = lazy(() => import('@/features/inventory/pages/MovementsPage'))
+const DocumentsPage        = lazy(() => import('@/features/inventory/pages/DocumentsPage'))
+const InvoiceBuilderPage   = lazy(() => import('@/features/inventory/pages/InvoiceBuilderPage'))
+const ProductsPage         = lazy(() => import('@/features/inventory/pages/ProductsPage'))
+const LocationsPage        = lazy(() => import('@/features/inventory/pages/LocationsPage'))
+const ReconciliationPage   = lazy(() => import('@/features/inventory/pages/ReconciliationPage'))
 
 function PageLoader() {
   return <div className="flex justify-center py-20"><Spinner size="lg" /></div>
@@ -44,7 +57,19 @@ export default function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       {/* Authenticated, inside AppShell */}
-      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+      <Route element={<ProtectedRoute><InventoryScope><AppShell /></InventoryScope></ProtectedRoute>}>
+        <Route path="/inventory" element={<Suspense fallback={<PageLoader />}><InventoryLayout /></Suspense>}>
+          <Route index element={<Suspense fallback={<PageLoader />}><StockPage /></Suspense>} />
+          <Route path="deployments" element={<Suspense fallback={<PageLoader />}><DeploymentsPage /></Suspense>} />
+          <Route path="deployments/:id" element={<Suspense fallback={<PageLoader />}><DeploymentDetailPage /></Suspense>} />
+          <Route path="movements" element={<Suspense fallback={<PageLoader />}><MovementsPage /></Suspense>} />
+          <Route path="documents" element={<Suspense fallback={<PageLoader />}><DocumentsPage /></Suspense>} />
+          <Route path="invoices/new" element={<Suspense fallback={<PageLoader />}><InvoiceBuilderPage /></Suspense>} />
+          <Route path="products" element={<Suspense fallback={<PageLoader />}><ProductsPage /></Suspense>} />
+          <Route path="locations" element={<Suspense fallback={<PageLoader />}><LocationsPage /></Suspense>} />
+          <Route path="reconciliation" element={<Suspense fallback={<PageLoader />}><ReconciliationPage /></Suspense>} />
+        </Route>
+
         <Route path="/"           element={<DashboardPage />} />
         <Route path="/customers"  element={<CustomersListPage />} />
         <Route path="/customers/:slug" element={<CustomerDetailPage />} />
