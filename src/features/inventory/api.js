@@ -156,13 +156,13 @@ export async function listPayments({ invoiceIds, clientId } = {}) {
 }
 
 // ---------- PDF storage ----------
-export async function uploadPdfVersion(doc, bytes, sha256) {
+export async function uploadPdfVersion(doc, bytes, sha256, source = 'generated') {
   const version = (doc.pdf_version ?? 0) + 1
   const path = `${doc.type}/${doc.doc_no}/v${version}.pdf`
   const { error } = await supabase.storage.from(BUCKET)
     .upload(path, new Blob([bytes], { type: 'application/pdf' }), { contentType: 'application/pdf', upsert: false })
   if (error) throw error
-  must(await supabase.from('inv_document_versions').insert({ document_id: doc.id, version, pdf_path: path, sha256 }))
+  must(await supabase.from('inv_document_versions').insert({ document_id: doc.id, version, pdf_path: path, sha256, source }))
   return must(await supabase.from('inv_documents')
     .update({ pdf_path: path, pdf_version: version, pdf_sha256: sha256 }).eq('id', doc.id).select().single())
 }

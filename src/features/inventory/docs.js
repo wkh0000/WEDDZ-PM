@@ -56,9 +56,25 @@ export async function regenerateDocument(doc, ctx) {
   const vm = await buildDocumentVM(fresh, ctx)
   const bytes = await renderVM(vm)
   const sha = await sha256Hex(bytes)
-  if (fresh.pdf_sha256 === sha) return { doc: fresh, bytes, changed: false }
+  // Compare against every stored version, not just the latest — an attached
+  // original or signed copy shouldn't make regenerating look like a change.
+  if (fresh.pdf_sha256 === sha || (fresh.pdf_path && (await api.listDocumentVersions(fresh.id)).some(v => v.sha256 === sha))) {
+    return { doc: fresh, bytes, changed: false }
+  }
   const updated = await api.uploadPdfVersion(fresh, bytes, sha)
   return { doc: updated, bytes, changed: true }
+}
+
+/** Store an uploaded PDF (the issued original, or a signed/scanned copy) as the latest version. */
+export async function attachOriginal(doc, file) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  if (String.fromCharCode(...bytes.slice(0, 5)) !== '%PDF-') throw new Error('That file is not a PDF')
+  const sha = await sha256Hex(bytes)
+  const fresh = await api.getDocument(doc.id)
+  if (fresh.pdf_path && (await api.listDocumentVersions(fresh.id)).some(v => v.sha256 === sha)) {
+    throw new Error('This exact PDF is already stored')
+  }
+  return api.uploadPdfVersion(fresh, bytes, sha, 'original')
 }
 
 /** Download the latest stored PDF, generating + storing one first if none exists. */

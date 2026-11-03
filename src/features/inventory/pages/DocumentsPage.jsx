@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, FileText, MoreHorizontal, FileDown, RefreshCw, History, Banknote, CheckCircle2, XCircle, Truck } from 'lucide-react'
+import { Plus, Search, FileText, MoreHorizontal, FileDown, RefreshCw, History, Banknote, CheckCircle2, XCircle, Truck, Upload } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -17,7 +17,7 @@ import { formatDate } from '@/lib/format'
 import { listDocuments, listPayments, listDocumentVersions, setChequeStatus } from '../api'
 import { formatAmount } from '../lib/money'
 import { invoiceBalance } from '../lib/stock'
-import { downloadDocument, regenerateDocument, downloadVersion } from '../docs'
+import { downloadDocument, regenerateDocument, downloadVersion, attachOriginal } from '../docs'
 import { useInventory } from './InventoryLayout'
 import DeliverModal from '../components/DeliverModal'
 import RecordPaymentModal from '../components/RecordPaymentModal'
@@ -164,20 +164,41 @@ export default function DocumentsPage() {
 
       <DeliverModal open={deliverDisc.open} onClose={deliverDisc.onClose} onDelivered={() => { load(); reload() }} />
       <RecordPaymentModal open={!!paying} onClose={() => setPaying(null)} invoice={paying} invoices={invoices} payments={payments} onSaved={load} />
-      <VersionsModal doc={versionsOf} onClose={() => setVersionsOf(null)} />
+      <VersionsModal doc={versionsOf} onClose={() => setVersionsOf(null)} onChanged={load} />
     </div>
   )
 }
 
-function VersionsModal({ doc, onClose }) {
+function VersionsModal({ doc, onClose, onChanged }) {
   const toast = useToast()
+  const fileRef = useRef(null)
   const [rows, setRows] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const loadRows = () => listDocumentVersions(doc.id).then(setRows).catch(err => toast.error(err.message))
   useEffect(() => {
     setRows(null)
-    if (doc) listDocumentVersions(doc.id).then(setRows).catch(err => toast.error(err.message))
+    if (doc) loadRows()
   }, [doc]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function attach(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    try {
+      await attachOriginal(doc, file)
+      toast.success('PDF attached as the latest version')
+      await loadRows(); onChanged?.()
+    } catch (err) { toast.error(err.message || 'Upload failed') } finally { setUploading(false) }
+  }
+
   return (
     <Modal open={!!doc} onClose={onClose} title={`PDF versions — ${doc?.doc_no ?? ''}`}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <p className="text-xs text-zinc-500">Attach the issued original or a signed copy. Download PDF always gives the latest version.</p>
+        <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={attach} />
+        <Button size="sm" variant="subtle" leftIcon={<Upload className="w-4 h-4" />} loading={uploading} onClick={() => fileRef.current?.click()}>Attach PDF</Button>
+      </div>
       {!rows ? <div className="flex justify-center py-6"><Spinner /></div> : rows.length === 0 ? (
         <p className="text-sm text-zinc-500">No PDF stored yet. Download or regenerate to create one.</p>
       ) : (
