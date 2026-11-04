@@ -29,6 +29,10 @@ delete from public.invoices
  where status = 'sent'
    and id in (select pm_invoice_id from public.inv_documents where type = 'INVOICE' and pm_invoice_id is not null);
 
+-- The Mark as paid block from 015 reads inv_documents, so it goes first.
+drop trigger if exists trg_invoices_block_linked_paid on public.invoices;
+drop function if exists public.invoices_block_linked_paid();
+
 -- 3. Inventory storage policies.
 drop policy if exists "inv docs read"  on storage.objects;
 drop policy if exists "inv docs write" on storage.objects;
