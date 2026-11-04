@@ -10,7 +10,7 @@ end $$;
 insert into public.inv_clients (id, customer_id, project_id, doc_ref, quotation_no, contact_name, company, mobile, project_title, notes) values (
   '8361667e-d96e-eef7-06b1-a83b5a26fef8', (select id from public.customers where name ilike 'Jayantha Mun%' order by created_at limit 1),
   (select id from public.projects where name = 'Jayantha Munaweera Chain' order by created_at limit 1),
-  '2026-085', 'WIT-Q-2026-085-R1', 'Mr. Jayantha Munaweera', 'JMC Wines Group', '+94 77 784 3334', 'Liquor Store Management System', 'Multi-Branch Edition: main branch + 10 outlets (Quotation WIT-Q-2026-085-R1). Year 1 software fees Rs. 1,900,000.00; 40% advance Rs. 760,000.00; balance invoiced as each outlet goes live, per the Project Agreement.');
+  '2026-085', 'WIT-Q-2026-085-R1', 'Mr. Jayantha Munaweera', 'JMC Wines Group', '+94 77 784 3334', 'Liquor Store Management System', 'Multi-Branch Edition: main branch + 10 outlets (Quotation WIT-Q-2026-085-R1).');
 
 insert into public.inv_products (id, sku, name, invoice_detail, dn_name, dn_detail, dn_components, category, brand_model, unit, price, kind, is_stock, is_free, track_serials, warranty_months, warranty_label, low_stock_threshold, sort_order) values
   ('8a2e9a0f-21dc-e40a-375a-895951148d04', 'SW-LSMS-OUTLET', 'Liquor Store Management System — outlet software', 'Outlet licence, setup, data loading, staff training and go-live support', null, null, '[]'::jsonb, 'Software', null, 'pcs', 150000, 'software', false, false, false, null, null, 0, 10),

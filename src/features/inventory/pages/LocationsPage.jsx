@@ -190,7 +190,7 @@ function ClientFormModal({ open, onClose, client, onSaved }) {
           <Select label="PM project" value={f.project_id ?? ''} onChange={e => set('project_id', e.target.value)}
             options={[{ value: '', label: 'Not linked' }, ...pm.projects.filter(p => !f.customer_id || p.customer_id === f.customer_id).map(p => ({ value: p.id, label: p.name }))]} />
         </div>
-        <Textarea label="Notes" rows={3} value={f.notes ?? ''} onChange={e => set('notes', e.target.value)} />
+        <Textarea label="Notes" rows={3} value={f.notes ?? ''} onChange={e => set('notes', e.target.value)} hint="Inventory staff can read this, so leave out fees and payment terms." />
       </form>
     </Modal>
   )

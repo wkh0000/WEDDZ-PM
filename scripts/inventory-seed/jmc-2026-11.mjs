@@ -16,7 +16,7 @@ export const client = {
   company: 'JMC Wines Group',
   mobile: '+94 77 784 3334',
   project_title: 'Liquor Store Management System',
-  notes: 'Multi-Branch Edition: main branch + 10 outlets (Quotation WIT-Q-2026-085-R1). Year 1 software fees Rs. 1,900,000.00; 40% advance Rs. 760,000.00; balance invoiced as each outlet goes live, per the Project Agreement.',
+  notes: 'Multi-Branch Edition: main branch + 10 outlets (Quotation WIT-Q-2026-085-R1).',
   customer_lookup: "name ilike 'Jayantha Mun%'",
   project_lookup: "name = 'Jayantha Munaweera Chain'"
 }
