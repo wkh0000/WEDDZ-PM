@@ -77,7 +77,7 @@ function LocationCard({ loc, onEdit }) {
           <div className="font-medium text-zinc-100 flex items-center gap-2">
             <span className="truncate">{loc.name}</span>
             {!loc.active && <Badge size="sm">Inactive</Badge>}
-            {loc.kind === 'site' && !loc.is_outlet && <Badge size="sm" tone="violet">Not an outlet</Badge>}
+            {loc.kind === 'site' && !loc.is_outlet && <Badge size="sm" tone="violet" className="shrink-0 whitespace-nowrap">Not an outlet</Badge>}
           </div>
           {loc.address && <div className="text-xs text-zinc-400 mt-0.5">{loc.address}</div>}
           {loc.manager_name && <div className="text-xs text-zinc-500 mt-1">{loc.manager_name}{loc.manager_mobile ? ` · ${loc.manager_mobile}` : ''}</div>}

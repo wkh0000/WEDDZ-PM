@@ -130,7 +130,7 @@ export default function DocumentsPage() {
               return (
                 <TR key={d.id}>
                   <TD className="font-medium text-zinc-100 whitespace-nowrap">{d.doc_no}</TD>
-                  <TD><Badge tone={TYPE[d.type][1]} size="sm">{TYPE[d.type][0]}</Badge></TD>
+                  <TD><Badge tone={TYPE[d.type][1]} size="sm" className="whitespace-nowrap">{TYPE[d.type][0]}</Badge></TD>
                   <TD className="text-zinc-400 whitespace-nowrap">{formatDate(d.doc_date)}</TD>
                   <TD className="text-sm max-w-sm">
                     <div className="text-zinc-300 truncate">{d.site_ids.map(siteName).filter(Boolean).join(', ') || d.title}</div>
@@ -197,7 +197,7 @@ function VersionsModal({ doc, onClose, onChanged }) {
       <div className="flex items-center justify-between gap-3 mb-3">
         <p className="text-xs text-zinc-500">Attach the issued original or a signed copy. Download PDF always gives the latest version.</p>
         <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={attach} />
-        <Button size="sm" variant="subtle" leftIcon={<Upload className="w-4 h-4" />} loading={uploading} onClick={() => fileRef.current?.click()}>Attach PDF</Button>
+        <Button size="sm" variant="subtle" className="shrink-0 whitespace-nowrap" leftIcon={<Upload className="w-4 h-4" />} loading={uploading} onClick={() => fileRef.current?.click()}>Attach PDF</Button>
       </div>
       {!rows ? <div className="flex justify-center py-6"><Spinner /></div> : rows.length === 0 ? (
         <p className="text-sm text-zinc-500">No PDF stored yet. Download or regenerate to create one.</p>
